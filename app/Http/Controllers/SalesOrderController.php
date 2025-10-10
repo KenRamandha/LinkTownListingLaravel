@@ -90,4 +90,59 @@ class SalesOrderController extends Controller
       return $this->fail('Gagal membuat sales order', 500, 'SERVER_ERROR');
     }
   }
+
+  public function show(Request $r, string $id)
+  {
+    try {
+      $u = $r->user();
+      if (!$u->hasPermission('sales.order:view')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
+      $order = DB::table('sales_orders')->where('company_id',$u->company_id)->where('id',$id)->first();
+      if (!$order) return $this->fail('Sales order tidak ditemukan', 404, 'NOT_FOUND');
+      $items = DB::table('sales_order_items')->where('sales_order_id',$id)->get();
+      return $this->ok(['order'=>$order,'items'=>$items],'Sales order');
+    } catch (Throwable $e) { report($e); return $this->fail('Gagal memuat sales order', 500, 'SERVER_ERROR'); }
+  }
+
+  public function update(Request $r, string $id)
+  {
+    try {
+      $u = $r->user();
+      if (!$u->hasPermission('sales.order:update')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
+      $r->validate([
+        'status' => "nullable|in:draft,confirmed,fulfilled,cancelled",
+        'notes'  => 'nullable|string'
+      ]);
+      $exists = DB::table('sales_orders')->where('company_id',$u->company_id)->where('id',$id)->exists();
+      if (!$exists) return $this->fail('Sales order tidak ditemukan', 404, 'NOT_FOUND');
+      $upd = array_filter($r->only('status','notes'), fn($v)=>!is_null($v));
+      $upd['updated_at'] = now();
+      DB::table('sales_orders')->where('id',$id)->update($upd);
+      return $this->ok(['id'=>$id],'Sales order diperbarui');
+    } catch (\Illuminate\Validation\ValidationException $e) { throw $e; }
+    catch (Throwable $e) { report($e); return $this->fail('Gagal memperbarui sales order', 500, 'SERVER_ERROR'); }
+  }
+
+  public function confirm(Request $r, string $id)
+  {
+    try { 
+      $u = $r->user();
+      if (!$u->hasPermission('sales.order:approve')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
+      $exists = DB::table('sales_orders')->where('company_id',$u->company_id)->where('id',$id)->exists();
+      if (!$exists) return $this->fail('Sales order tidak ditemukan', 404, 'NOT_FOUND');
+      DB::table('sales_orders')->where('id',$id)->update(['status'=>'confirmed','updated_at'=>now()]);
+      return $this->ok(['id'=>$id,'status'=>'confirmed'],'Sales order dikonfirmasi');
+    } catch (Throwable $e) { report($e); return $this->fail('Gagal konfirmasi sales order', 500, 'SERVER_ERROR'); }
+  }
+
+  public function cancel(Request $r, string $id)
+  {
+    try {
+      $u = $r->user();
+      if (!$u->hasPermission('sales.order:update')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
+      $exists = DB::table('sales_orders')->where('company_id',$u->company_id)->where('id',$id)->exists();
+      if (!$exists) return $this->fail('Sales order tidak ditemukan', 404, 'NOT_FOUND');
+      DB::table('sales_orders')->where('id',$id)->update(['status'=>'cancelled','updated_at'=>now()]);
+      return $this->ok(['id'=>$id,'status'=>'cancelled'],'Sales order dibatalkan');
+    } catch (Throwable $e) { report($e); return $this->fail('Gagal membatalkan sales order', 500, 'SERVER_ERROR'); }
+  }
 }
