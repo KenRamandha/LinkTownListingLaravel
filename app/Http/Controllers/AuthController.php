@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Models\Core\User;
+use Laravel\Sanctum\PersonalAccessToken;
 use Throwable;
 
 class AuthController extends Controller
@@ -62,23 +63,33 @@ class AuthController extends Controller
     public function refresh(Request $r)
     {
         try {
+            // Auth via access token (Bearer <access_token>)
             $user = $r->user();
             if (!$user) {
                 return $this->fail('Unauthenticated', 401, 'UNAUTHENTICATED');
             }
 
-            // Ensure current token is a refresh token and still valid
-            if (!$user->tokenCan('token:refresh')) {
-                return $this->fail('Invalid token ability', 403, 'FORBIDDEN');
-            }
+            // Client sends refresh_token in body (not in Authorization)
+            $r->validate(['refresh_token' => 'required|string']);
+            $providedRefresh = (string) $r->input('refresh_token');
 
-            $currentToken = $user->currentAccessToken();
-            if (!$currentToken) {
-                return $this->fail('Token not found', 401, 'UNAUTHENTICATED');
+            // Find and verify refresh token
+            $refreshPat = PersonalAccessToken::findToken($providedRefresh);
+            if (!$refreshPat) {
+                return $this->fail('Refresh token tidak valid', 403, 'FORBIDDEN');
+            }
+            if ($refreshPat->tokenable_id !== $user->getKey() || $refreshPat->tokenable_type !== get_class($user)) {
+                return $this->fail('Refresh token tidak sesuai pengguna', 403, 'FORBIDDEN');
+            }
+            if (($refreshPat->name ?? null) !== 'refresh' || !$refreshPat->can('token:refresh')) {
+                return $this->fail('Refresh token tidak memiliki izin yang benar', 403, 'FORBIDDEN');
+            }
+            if (!is_null($refreshPat->expires_at) && now()->greaterThan($refreshPat->expires_at)) {
+                return $this->fail('Refresh token kedaluwarsa', 401, 'UNAUTHENTICATED');
             }
 
             // Rotate refresh token: delete the used refresh token
-            $currentToken->delete();
+            $refreshPat->delete();
 
             $accessTtlMinutes = (int) env('ACCESS_TOKEN_TTL_MINUTES', 60);
             $refreshTtlDays   = (int) env('REFRESH_TOKEN_TTL_DAYS', 30);

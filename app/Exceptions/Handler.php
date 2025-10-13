@@ -22,6 +22,18 @@ class Handler extends ExceptionHandler
         return $request->expectsJson() || $request->is('api/*');
     }
 
+    protected function unauthenticated($request, AuthenticationException $exception)
+    {
+        if ($this->wantsJson($request)) {
+            return response()->json([
+                'success' => false,
+                'code'    => 401,
+                'message' => 'Anda belum terautentikasi',
+            ], 401);
+        }
+        return parent::unauthenticated($request, $exception);
+    }
+
     public function render($request, Throwable $e)
     {
         if (!$this->wantsJson($request)) {
@@ -34,8 +46,8 @@ class Handler extends ExceptionHandler
         if ($e instanceof ValidationException) {
             return response()->json([
                 'success' => false,
+                'code'    => 422,
                 'message' => 'Validasi gagal',
-                'code'    => 'VALIDATION_ERROR',
                 'errors'  => $e->errors(),
             ], 422);
         }
@@ -44,16 +56,16 @@ class Handler extends ExceptionHandler
         if ($e instanceof AuthenticationException) {
             return response()->json([
                 'success' => false,
+                'code'    => 401,
                 'message' => 'Anda belum terautentikasi',
-                'code'    => 'UNAUTHORIZED',
             ], 401);
         }
 
         if ($e instanceof AuthorizationException) {
             return response()->json([
                 'success' => false,
+                'code'    => 403,
                 'message' => 'Anda tidak memiliki izin',
-                'code'    => 'FORBIDDEN',
             ], 403);
         }
 
@@ -61,8 +73,8 @@ class Handler extends ExceptionHandler
         if ($e instanceof ModelNotFoundException || $e instanceof NotFoundHttpException) {
             return response()->json([
                 'success' => false,
+                'code'    => 404,
                 'message' => 'Resource tidak ditemukan',
-                'code'    => 'NOT_FOUND',
             ], 404);
         }
 
@@ -70,8 +82,8 @@ class Handler extends ExceptionHandler
         if ($e instanceof MethodNotAllowedHttpException) {
             return response()->json([
                 'success' => false,
+                'code'    => 405,
                 'message' => 'Metode tidak diizinkan untuk endpoint ini',
-                'code'    => 'METHOD_NOT_ALLOWED',
             ], 405);
         }
 
@@ -79,8 +91,8 @@ class Handler extends ExceptionHandler
         if ($e instanceof ThrottleRequestsException) {
             return response()->json([
                 'success' => false,
+                'code'    => 429,
                 'message' => 'Terlalu banyak permintaan, coba lagi nanti',
-                'code'    => 'TOO_MANY_REQUESTS',
             ], 429);
         }
 
@@ -88,8 +100,8 @@ class Handler extends ExceptionHandler
         if ($e instanceof QueryException) {
             return response()->json([
                 'success' => false,
+                'code'    => 500,
                 'message' => 'Kesalahan database',
-                'code'    => 'DB_ERROR',
                 'meta'    => $debug ? ['sql' => $e->getSql(), 'bindings' => $e->getBindings()] : (object)[],
             ], 500);
         }
@@ -99,17 +111,8 @@ class Handler extends ExceptionHandler
             $status = $e->getStatusCode();
             return response()->json([
                 'success' => false,
+                'code'    => $status,
                 'message' => $e->getMessage() ?: 'Terjadi kesalahan',
-                'code'    => match ($status) {
-                    400 => 'BAD_REQUEST',
-                    401 => 'UNAUTHORIZED',
-                    403 => 'FORBIDDEN',
-                    404 => 'NOT_FOUND',
-                    405 => 'METHOD_NOT_ALLOWED',
-                    409 => 'CONFLICT',
-                    422 => 'UNPROCESSABLE_ENTITY',
-                    default => 'HTTP_ERROR',
-                },
                 'meta'    => $debug ? ['status' => $status] : (object)[],
             ], $status);
         }
@@ -117,8 +120,8 @@ class Handler extends ExceptionHandler
         // DEFAULT 500
         return response()->json([
             'success' => false,
+            'code'    => 500,
             'message' => 'Terjadi kesalahan pada server',
-            'code'    => 'SERVER_ERROR',
             'meta'    => $debug ? ['exception' => get_class($e), 'message' => $e->getMessage()] : (object)[],
         ], 500);
     }

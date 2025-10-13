@@ -8,6 +8,7 @@ trait ApiResponse
     {
         return response()->json([
             'success' => true,
+            'code'    => $status,
             'message' => $message,
             'data'    => $data,
             'meta'    => (object) $meta,
@@ -18,8 +19,8 @@ trait ApiResponse
     {
         $payload = [
             'success' => false,
+            'code'    => $status,
             'message' => $message,
-            'code'    => $code,
         ];
         if (!is_null($errors)) $payload['errors'] = $errors;
         if (!empty($meta))     $payload['meta']   = $meta;

@@ -23,44 +23,9 @@ Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('auth
 Route::post('/auth/refresh', [AuthController::class, 'refresh'])->middleware('auth:sanctum');
 
 Route::middleware('auth:sanctum')->group(function () {
-    /**
-     * GET /api/me
-     * Profil user saat ini (id, name, email, company_id, is_employee, status).
-     * Contoh:
-     *   curl -s http://localhost:8000/api/me -H 'Authorization: Bearer <token>'
-     */
     Route::get('/me', [MeController::class, 'show']);
-
-    /**
-     * GET /api/permissions
-     * Kumpulan permission efektif (array of keys) milik user.
-     * Postman:
-     *   - Method: GET
-     *   - URL   : http://localhost:8000/api/permissions
-     *   - Auth  : Bearer Token → tempel nilai token (tanpa kata "Bearer")
-     *   - Send  : tekan Send → respons `data.permissions` berisi array key.
-     * cURL:
-     *   curl -s http://localhost:8000/api/permissions -H 'Authorization: Bearer <token>'
-     */
     Route::get('/permissions', [MeController::class, 'permissions']);
-
-    /**
-     * GET /api/me/profile
-     * Ambil profil milik user yang sedang login (tabel user_profiles).
-     * Contoh:
-     *   curl -s http://localhost:8000/api/me/profile -H 'Authorization: Bearer <token>'
-     */
     Route::get('/me/profile', [MeController::class, 'profile']);
-
-    /**
-     * PUT /api/me/profile
-     * Update profil milik user yang sedang login. Field yang didukung:
-     *   { "phone":"string?", "avatar_url":"string?", "position":"string?" }
-     * Contoh:
-     *   curl -s -X PUT http://localhost:8000/api/me/profile \
-     *     -H 'Authorization: Bearer <token>' -H 'Content-Type: application/json' \
-     *     -d '{"phone":"0812345","position":"Sales Executive"}'
-     */
     Route::put('/me/profile', [MeController::class, 'updateProfile']);
 
     // ----- Attendance -----
@@ -82,6 +47,8 @@ Route::middleware('auth:sanctum')->group(function () {
      *     -d '{"type":"clock_in","latitude":-6.2,"longitude":106.8}'
      */
     Route::post('/attendance/clock', [AttendanceController::class, 'clock']);
+    Route::get('/attendance/allowed-locations', [AttendanceController::class, 'allowedLocations']);
+    Route::get('/attendance/overview', [AttendanceController::class, 'overview']);
 
     /**
      * GET /api/attendance/logs?date=YYYY-MM-DD
@@ -91,41 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
      *     -H 'Authorization: Bearer <token>'
      */
     Route::get('/attendance/logs', [AttendanceController::class, 'logs']);
-
-    // ----- Sales Orders -----
-    /**
-     * GET /api/sales/orders
-     * Ambil daftar Sales Order terbaru (maks 50) milik company user.
-     * Contoh:
-     *   curl -s http://localhost:8000/api/sales/orders -H 'Authorization: Bearer <token>'
-     */
     Route::get('/sales/orders', [SalesOrderController::class, 'index']);
-
-    /**
-     * POST /api/sales/orders
-     * Buat Sales Order baru. Body JSON (valid):
-     *   {
-     *     "customer_id": "string",
-     *     "order_type": "property_sale|property_rent|goods_sale|service_sale",
-     *     "sales_id": "string",
-     *     "order_date": "YYYY-MM-DD",
-     *     "items": [
-     *       { "listing_id": "string|null", "item_name": "string|null", "qty": number, "unit_price": number, "discount_amount": number|null }
-     *     ],
-     *     "notes": "string|null"
-     *   }
-     * Contoh:
-     *   curl -s -X POST http://localhost:8000/api/sales/orders \
-     *     -H 'Authorization: Bearer <token>' -H 'Content-Type: application/json' \
-     *     -d '{
-     *           "customer_id":"CUST-001",
-     *           "order_type":"goods_sale",
-     *           "sales_id":"EMP-001",
-     *           "order_date":"2025-01-01",
-     *           "items":[{"item_name":"Item A","qty":2,"unit_price":150000}],
-     *           "notes":"PO via phone"
-     *         }'
-     */
     Route::post('/sales/orders', [SalesOrderController::class, 'store']);
 
     /**
