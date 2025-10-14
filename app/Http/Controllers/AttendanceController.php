@@ -82,10 +82,11 @@ class AttendanceController extends Controller
                 'type'        => 'required|in:clock_in,clock_out,break_out,break_in',
                 'latitude'    => 'nullable|numeric',
                 'longitude'   => 'nullable|numeric',
-                'photo_url'   => 'nullable|file|image|max:5120', // max 5MB
+                'photo_url'   => 'nullable|file|image|max:5120',
                 'video_url'   => 'nullable|string',
                 'device_info' => 'nullable|string',
-                'geofence_id' => 'nullable|string'
+                'geofence_id' => 'nullable|string',
+                'note'       => 'nullable|string',
             ]);
 
             $u = $r->user();
@@ -95,28 +96,29 @@ class AttendanceController extends Controller
 
             $now = now('Asia/Jakarta');
 
-            // Handle file upload for photo_url: store path in DB
             $photoPath = null;
             if ($r->hasFile('photo_url') && $r->file('photo_url')->isValid()) {
                 $file = $r->file('photo_url');
                 $ext = $file->getClientOriginalExtension() ?: 'jpg';
                 $filename = 'photo_' . $u->id . '_' . $now->format('Ymd_His') . '_' . Str::random(6) . '.' . strtolower($ext);
-                // stored at storage/app/public/attendance/<filename>
                 $photoPath = Storage::disk('public')->putFileAs('attendance', $file, $filename);
             }
 
-            $data = array_merge($r->only(['type', 'latitude', 'longitude', 'video_url', 'device_info', 'geofence_id']), [
+            $payload = $r->only(['type', 'latitude', 'longitude', 'video_url', 'device_info', 'geofence_id', 'note']);
+            if (array_key_exists('note', $payload)) {
+                $payload['note'] = $r->filled('note') ? trim($payload['note']) : null;
+            }
+
+            $data = array_merge($payload, [
                 'id' => (string) Str::orderedUuid(),
                 'user_id' => $u->id,
                 'work_date' => $now->toDateString(),
                 'logged_at' => $now->toDateTimeString(),
                 'created_at' => $now,
                 'updated_at' => $now,
-                'photo_url' => $photoPath, // store relative path in DB
+                'photo_url' => $photoPath,
             ]);
             DB::table('attendance_logs')->insert($data);
-
-            // Return absolute URL for client consumption
             $resp = $data;
             $resp['photo_url'] = $this->publicUrl($data['photo_url']);
             return $this->ok($resp, 'Clock berhasil', [], 201);
