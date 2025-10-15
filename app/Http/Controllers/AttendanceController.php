@@ -71,7 +71,6 @@ class AttendanceController extends Controller
     {
         if (!$path) return null;
         $path = ltrim($path, '/');
-        // Ensure absolute URL for mobile apps
         return asset('storage/' . $path);
     }
 
@@ -86,7 +85,8 @@ class AttendanceController extends Controller
                 'video_url'   => 'nullable|string',
                 'device_info' => 'nullable|string',
                 'geofence_id' => 'nullable|string',
-                'note'       => 'nullable|string',
+                'note'        => 'nullable|string',
+                'address'     => 'nullable|string',
             ]);
 
             $u = $r->user();
@@ -104,7 +104,7 @@ class AttendanceController extends Controller
                 $photoPath = Storage::disk('public')->putFileAs('attendance', $file, $filename);
             }
 
-            $payload = $r->only(['type', 'latitude', 'longitude', 'video_url', 'device_info', 'geofence_id', 'note']);
+            $payload = $r->only(['type', 'latitude', 'longitude', 'video_url', 'device_info', 'geofence_id', 'note', 'address']);
             if (array_key_exists('note', $payload)) {
                 $payload['note'] = $r->filled('note') ? trim($payload['note']) : null;
             }
