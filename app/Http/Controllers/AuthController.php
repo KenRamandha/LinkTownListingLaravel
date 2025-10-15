@@ -7,10 +7,17 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Models\Core\User;
 use Laravel\Sanctum\PersonalAccessToken;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Throwable;
 
 class AuthController extends Controller
 {
+    private const ACCESS_TOKEN_NAME  = 'access';
+    private const REFRESH_TOKEN_NAME = 'refresh';
+    private const PLAIN_TOKEN_PREFIX = 'plain_token:';
+    private const DEFAULT_TOKEN_TTL_DAYS = 7;
+
     public function login(Request $r)
     {
         try {
@@ -23,27 +30,26 @@ class AuthController extends Controller
             if ($user->status !== 'active') {
                 return $this->fail('User is not active', 403, 'FORBIDDEN');
             }
-            $accessTtlMinutes = (int) env('ACCESS_TOKEN_TTL_MINUTES', 60);
-            $refreshTtlDays   = (int) env('REFRESH_TOKEN_TTL_DAYS', 30);
+            $this->purgeExpiredTokens($user);
 
-            // Issue short-lived access token
-            $newAccess = $user->createToken(
-                'access',
+            $accessToken = $this->resolveToken(
+                $user,
+                self::ACCESS_TOKEN_NAME,
                 ['*'],
-                now()->addMinutes($accessTtlMinutes)
+                $this->tokenExpiry()
             );
 
-            // Issue long-lived refresh token (ability-gated)
-            $newRefresh = $user->createToken(
-                'refresh',
+            $refreshToken = $this->resolveToken(
+                $user,
+                self::REFRESH_TOKEN_NAME,
                 ['token:refresh'],
-                now()->addDays($refreshTtlDays)
+                $this->tokenExpiry()
             );
 
             return $this->ok([
                 'token_type'   => 'Bearer',
-                'access_token' => $newAccess->plainTextToken,
-                'refresh_token'=> $newRefresh->plainTextToken,
+                'access_token' => $accessToken,
+                'refresh_token'=> $refreshToken,
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -63,17 +69,14 @@ class AuthController extends Controller
     public function refresh(Request $r)
     {
         try {
-            // Auth via access token (Bearer <access_token>)
             $user = $r->user();
             if (!$user) {
                 return $this->fail('Unauthenticated', 401, 'UNAUTHENTICATED');
             }
 
-            // Client sends refresh_token in body (not in Authorization)
             $r->validate(['refresh_token' => 'required|string']);
             $providedRefresh = (string) $r->input('refresh_token');
 
-            // Find and verify refresh token
             $refreshPat = PersonalAccessToken::findToken($providedRefresh);
             if (!$refreshPat) {
                 return $this->fail('Refresh token tidak valid', 403, 'FORBIDDEN');
@@ -85,31 +88,32 @@ class AuthController extends Controller
                 return $this->fail('Refresh token tidak memiliki izin yang benar', 403, 'FORBIDDEN');
             }
             if (!is_null($refreshPat->expires_at) && now()->greaterThan($refreshPat->expires_at)) {
+                $refreshPat->delete();
                 return $this->fail('Refresh token kedaluwarsa', 401, 'UNAUTHENTICATED');
             }
 
-            // Rotate refresh token: delete the used refresh token
-            $refreshPat->delete();
+            $this->purgeExpiredTokens($user);
 
-            $accessTtlMinutes = (int) env('ACCESS_TOKEN_TTL_MINUTES', 60);
-            $refreshTtlDays   = (int) env('REFRESH_TOKEN_TTL_DAYS', 30);
-
-            // Issue new tokens
-            $newAccess = $user->createToken(
-                'access',
-                ['*'],
-                now()->addMinutes($accessTtlMinutes)
-            );
-            $newRefresh = $user->createToken(
-                'refresh',
+            $refreshToken = $this->resolveToken(
+                $user,
+                self::REFRESH_TOKEN_NAME,
                 ['token:refresh'],
-                now()->addDays($refreshTtlDays)
+                $this->tokenExpiry(),
+                $refreshPat,
+                $providedRefresh
+            );
+
+            $accessToken = $this->resolveToken(
+                $user,
+                self::ACCESS_TOKEN_NAME,
+                ['*'],
+                $this->tokenExpiry()
             );
 
             return $this->ok([
                 'token_type'    => 'Bearer',
-                'access_token'  => $newAccess->plainTextToken,
-                'refresh_token' => $newRefresh->plainTextToken,
+                'access_token'  => $accessToken,
+                'refresh_token' => $refreshToken,
             ], 'Token refreshed');
         } catch (Throwable $e) {
             report($e);
@@ -126,5 +130,111 @@ class AuthController extends Controller
             report($e);
             return $this->fail('Gagal logout', 500, 'SERVER_ERROR');
         }
+    }
+
+    private function tokenExpiry(): Carbon
+    {
+        $days = (int) env('ACCESS_TOKEN_TTL_DAYS', self::DEFAULT_TOKEN_TTL_DAYS);
+        if ($days <= 0) {
+            $days = self::DEFAULT_TOKEN_TTL_DAYS;
+        }
+
+        return now()->addDays($days);
+    }
+
+    private function purgeExpiredTokens(?User $user = null): void
+    {
+        $query = PersonalAccessToken::query()
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', now());
+
+        if ($user) {
+            $query->where('tokenable_type', $user->getMorphClass())
+                  ->where('tokenable_id', $user->getKey());
+        }
+
+        $query->delete();
+    }
+
+    private function resolveToken(
+        User $user,
+        string $name,
+        array $abilities,
+        Carbon $expiresAt,
+        ?PersonalAccessToken $preferredToken = null,
+        ?string $plainFromRequest = null
+    ): string {
+        $now = now();
+
+        $token = $preferredToken ?? $user->tokens()
+            ->where('name', $name)
+            ->where(function ($q) use ($now) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', $now);
+            })
+            ->orderByDesc('last_used_at')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($token) {
+            $plainToken = $plainFromRequest ?: $this->extractPlainToken($token);
+            if ($plainToken) {
+                $this->syncTokenState($token, $abilities, $plainToken, $expiresAt);
+                return $plainToken;
+            }
+
+            $token->delete();
+        }
+
+        return $this->issueFreshToken($user, $name, $abilities, $expiresAt);
+    }
+
+    private function extractPlainToken(PersonalAccessToken $token): ?string
+    {
+        foreach ((array) $token->abilities as $ability) {
+            if (is_string($ability) && Str::startsWith($ability, self::PLAIN_TOKEN_PREFIX)) {
+                return Str::after($ability, self::PLAIN_TOKEN_PREFIX);
+            }
+        }
+
+        return null;
+    }
+
+    private function syncTokenState(
+        PersonalAccessToken $token,
+        array $requiredAbilities,
+        string $plainTextToken,
+        Carbon $expiresAt
+    ): void {
+        $abilities = array_values(array_filter(
+            (array) $token->abilities,
+            fn ($ability) => !is_string($ability) || !Str::startsWith($ability, self::PLAIN_TOKEN_PREFIX)
+        ));
+
+        foreach ($requiredAbilities as $ability) {
+            if (!in_array($ability, $abilities, true)) {
+                $abilities[] = $ability;
+            }
+        }
+
+        $abilities[] = self::PLAIN_TOKEN_PREFIX . $plainTextToken;
+
+        $attributes = ['abilities' => $abilities];
+
+        if (is_null($token->expires_at) || $token->expires_at->lt($expiresAt)) {
+            $attributes['expires_at'] = $expiresAt;
+        }
+
+        $token->forceFill($attributes)->save();
+    }
+
+    private function issueFreshToken(User $user, string $name, array $abilities, Carbon $expiresAt): string
+    {
+        $newToken = $user->createToken($name, $abilities, $expiresAt);
+        $plainText = $newToken->plainTextToken;
+
+        $this->syncTokenState($newToken->accessToken, $abilities, $plainText, $expiresAt);
+
+        return $plainText;
     }
 }
