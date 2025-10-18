@@ -2,13 +2,33 @@
 
 use Illuminate\Support\Facades\Route;
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\MeController;
-use App\Http\Controllers\MenuController;
-use App\Http\Controllers\PublicSalesController;
-use App\Http\Controllers\AttendanceController;
-use App\Http\Controllers\SalesOrderController;
-use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Core\AuthController;
+use App\Http\Controllers\Core\MeController;
+use App\Http\Controllers\Core\HomeController;
+use App\Http\Controllers\Core\RolesController;
+use App\Http\Controllers\Core\ModulesController;
+use App\Http\Controllers\Core\FeaturesController;
+use App\Http\Controllers\Core\PermissionsMasterController;
+use App\Http\Controllers\Core\UsersController;
+
+use App\Http\Controllers\Menus\MenuController;
+use App\Http\Controllers\Menus\MenuAdminController;
+
+use App\Http\Controllers\Attendance\AttendanceController;
+use App\Http\Controllers\Attendance\AttendanceGeofencesController;
+use App\Http\Controllers\Attendance\AttendanceShiftsController;
+use App\Http\Controllers\Attendance\AttendanceSchedulesController;
+use App\Http\Controllers\Attendance\LeaveTypesController;
+use App\Http\Controllers\Attendance\LeaveRequestsController;
+use App\Http\Controllers\Attendance\OvertimeRequestsController;
+
+use App\Http\Controllers\Sales\PublicSalesController;
+use App\Http\Controllers\Sales\SalesOrderController;
+
+use App\Http\Controllers\Audit\AuditLogsController;
+
+
+
 
 
 // ===== PUBLIC (token opsional via middleware `optional.auth`) =====
@@ -64,33 +84,33 @@ Route::middleware('auth:sanctum')->group(function () {
     /**
      * SALES: Customers
      */
-    Route::get('/sales/customers', [\App\Http\Controllers\SalesCustomersController::class, 'index']);
-    Route::post('/sales/customers', [\App\Http\Controllers\SalesCustomersController::class, 'store']);
-    Route::get('/sales/customers/{id}', [\App\Http\Controllers\SalesCustomersController::class, 'show']);
-    Route::put('/sales/customers/{id}', [\App\Http\Controllers\SalesCustomersController::class, 'update']);
-    Route::delete('/sales/customers/{id}', [\App\Http\Controllers\SalesCustomersController::class, 'destroy']);
+    // Route::get('/sales/customers', [SalesCustomerController::class, 'index']);
+    // Route::post('/sales/customers', [SalesCustomerController::class, 'store']);
+    // Route::get('/sales/customers/{id}', [SalesCustomerController::class, 'show']);
+    // Route::put('/sales/customers/{id}', [SalesCustomerController::class, 'update']);
+    // Route::delete('/sales/customers/{id}', [SalesCustomerController::class, 'destroy']);
 
     /**
      * SALES: Properties & Units
      */
-    Route::get('/sales/properties', [\App\Http\Controllers\SalesPropertiesController::class, 'index']);
-    Route::post('/sales/properties', [\App\Http\Controllers\SalesPropertiesController::class, 'store']);
-    Route::get('/sales/properties/{id}', [\App\Http\Controllers\SalesPropertiesController::class, 'show']);
-    Route::put('/sales/properties/{id}', [\App\Http\Controllers\SalesPropertiesController::class, 'update']);
-    Route::delete('/sales/properties/{id}', [\App\Http\Controllers\SalesPropertiesController::class, 'destroy']);
-    Route::get('/sales/properties/{id}/units', [\App\Http\Controllers\SalesUnitsController::class, 'indexByProperty']);
-    Route::post('/sales/properties/{id}/units', [\App\Http\Controllers\SalesUnitsController::class, 'storeForProperty']);
-    Route::put('/sales/units/{unitId}', [\App\Http\Controllers\SalesUnitsController::class, 'update']);
-    Route::delete('/sales/units/{unitId}', [\App\Http\Controllers\SalesUnitsController::class, 'destroy']);
+    // Route::get('/sales/properties', [SalesPropertiesController::class, 'index']);
+    // Route::post('/sales/properties', [SalesPropertiesController::class, 'store']);
+    // Route::get('/sales/properties/{id}', [SalesPropertiesController::class, 'show']);
+    // Route::put('/sales/properties/{id}', [SalesPropertiesController::class, 'update']);
+    // Route::delete('/sales/properties/{id}', [SalesPropertiesController::class, 'destroy']);
+    // Route::get('/sales/properties/{id}/units', [SalesUnitsController::class, 'indexByProperty']);
+    // Route::post('/sales/properties/{id}/units', [SalesUnitsController::class, 'storeForProperty']);
+    // Route::put('/sales/units/{unitId}', [SalesUnitsController::class, 'update']);
+    // Route::delete('/sales/units/{unitId}', [SalesUnitsController::class, 'destroy']);
 
     /**
      * SALES: Listings
      */
-    Route::get('/sales/listings', [\App\Http\Controllers\SalesListingsController::class, 'index']);
-    Route::post('/sales/listings', [\App\Http\Controllers\SalesListingsController::class, 'store']);
-    Route::get('/sales/listings/{id}', [\App\Http\Controllers\SalesListingsController::class, 'show']);
-    Route::put('/sales/listings/{id}', [\App\Http\Controllers\SalesListingsController::class, 'update']);
-    Route::delete('/sales/listings/{id}', [\App\Http\Controllers\SalesListingsController::class, 'destroy']);
+    // Route::get('/sales/listings', [SalesListingsController::class, 'index']);
+    // Route::post('/sales/listings', [SalesListingsController::class, 'store']);
+    // Route::get('/sales/listings/{id}', [SalesListingsController::class, 'show']);
+    // Route::put('/sales/listings/{id}', [SalesListingsController::class, 'update']);
+    // Route::delete('/sales/listings/{id}', [SalesListingsController::class, 'destroy']);
 
     /**
      * SALES: Orders detail & actions
@@ -103,111 +123,111 @@ Route::middleware('auth:sanctum')->group(function () {
     /**
      * SALES: Contracts, Invoices, Payments
      */
-    Route::get('/sales/contracts', [\App\Http\Controllers\ContractsController::class, 'index']);
-    Route::post('/sales/contracts', [\App\Http\Controllers\ContractsController::class, 'store']);
-    Route::get('/sales/contracts/{id}', [\App\Http\Controllers\ContractsController::class, 'show']);
-    Route::put('/sales/contracts/{id}', [\App\Http\Controllers\ContractsController::class, 'update']);
+    // Route::get('/sales/contracts', [ContractsController::class, 'index']);
+    // Route::post('/sales/contracts', [ContractsController::class, 'store']);
+    // Route::get('/sales/contracts/{id}', [ContractsController::class, 'show']);
+    // Route::put('/sales/contracts/{id}', [ContractsController::class, 'update']);
 
-    Route::get('/sales/invoices', [\App\Http\Controllers\InvoicesController::class, 'index']);
-    Route::post('/sales/invoices', [\App\Http\Controllers\InvoicesController::class, 'store']);
-    Route::get('/sales/invoices/{id}', [\App\Http\Controllers\InvoicesController::class, 'show']);
-    Route::put('/sales/invoices/{id}', [\App\Http\Controllers\InvoicesController::class, 'update']);
+    // Route::get('/sales/invoices', [InvoicesController::class, 'index']);
+    // Route::post('/sales/invoices', [InvoicesController::class, 'store']);
+    // Route::get('/sales/invoices/{id}', [InvoicesController::class, 'show']);
+    // Route::put('/sales/invoices/{id}', [InvoicesController::class, 'update']);
 
-    Route::get('/sales/payments', [\App\Http\Controllers\PaymentsController::class, 'index']);
-    Route::post('/sales/payments', [\App\Http\Controllers\PaymentsController::class, 'store']);
-    Route::get('/sales/payments/{id}', [\App\Http\Controllers\PaymentsController::class, 'show']);
-    Route::put('/sales/payments/{id}', [\App\Http\Controllers\PaymentsController::class, 'update']);
+    // Route::get('/sales/payments', [PaymentsController::class, 'index']);
+    // Route::post('/sales/payments', [PaymentsController::class, 'store']);
+    // Route::get('/sales/payments/{id}', [PaymentsController::class, 'show']);
+    // Route::put('/sales/payments/{id}', [PaymentsController::class, 'update']);
 
     /**
      * ATTENDANCE: Geofences, Shifts, Schedules, Leave, Overtime
      */
-    Route::get('/attendance/geofences', [\App\Http\Controllers\AttendanceGeofencesController::class, 'index']);
-    Route::post('/attendance/geofences', [\App\Http\Controllers\AttendanceGeofencesController::class, 'store']);
-    Route::put('/attendance/geofences/{id}', [\App\Http\Controllers\AttendanceGeofencesController::class, 'update']);
-    Route::delete('/attendance/geofences/{id}', [\App\Http\Controllers\AttendanceGeofencesController::class, 'destroy']);
+    Route::get('/attendance/geofences', [AttendanceGeofencesController::class, 'index']);
+    Route::post('/attendance/geofences', [AttendanceGeofencesController::class, 'store']);
+    Route::put('/attendance/geofences/{id}', [AttendanceGeofencesController::class, 'update']);
+    Route::delete('/attendance/geofences/{id}', [AttendanceGeofencesController::class, 'destroy']);
 
-    Route::get('/attendance/shifts', [\App\Http\Controllers\AttendanceShiftsController::class, 'index']);
-    Route::post('/attendance/shifts', [\App\Http\Controllers\AttendanceShiftsController::class, 'store']);
-    Route::put('/attendance/shifts/{id}', [\App\Http\Controllers\AttendanceShiftsController::class, 'update']);
-    Route::delete('/attendance/shifts/{id}', [\App\Http\Controllers\AttendanceShiftsController::class, 'destroy']);
+    Route::get('/attendance/shifts', [AttendanceShiftsController::class, 'index']);
+    Route::post('/attendance/shifts', [AttendanceShiftsController::class, 'store']);
+    Route::put('/attendance/shifts/{id}', [AttendanceShiftsController::class, 'update']);
+    Route::delete('/attendance/shifts/{id}', [AttendanceShiftsController::class, 'destroy']);
 
-    Route::get('/attendance/schedules', [\App\Http\Controllers\AttendanceSchedulesController::class, 'index']);
-    Route::post('/attendance/schedules', [\App\Http\Controllers\AttendanceSchedulesController::class, 'store']);
-    Route::put('/attendance/schedules/{id}', [\App\Http\Controllers\AttendanceSchedulesController::class, 'update']);
-    Route::delete('/attendance/schedules/{id}', [\App\Http\Controllers\AttendanceSchedulesController::class, 'destroy']);
+    Route::get('/attendance/schedules', [AttendanceSchedulesController::class, 'index']);
+    Route::post('/attendance/schedules', [AttendanceSchedulesController::class, 'store']);
+    Route::put('/attendance/schedules/{id}', [AttendanceSchedulesController::class, 'update']);
+    Route::delete('/attendance/schedules/{id}', [AttendanceSchedulesController::class, 'destroy']);
 
-    Route::get('/attendance/leave-types', [\App\Http\Controllers\LeaveTypesController::class, 'index']);
-    Route::post('/attendance/leave-types', [\App\Http\Controllers\LeaveTypesController::class, 'store']);
-    Route::put('/attendance/leave-types/{id}', [\App\Http\Controllers\LeaveTypesController::class, 'update']);
-    Route::delete('/attendance/leave-types/{id}', [\App\Http\Controllers\LeaveTypesController::class, 'destroy']);
+    Route::get('/attendance/leave-types', [LeaveTypesController::class, 'index']);
+    Route::post('/attendance/leave-types', [LeaveTypesController::class, 'store']);
+    Route::put('/attendance/leave-types/{id}', [LeaveTypesController::class, 'update']);
+    Route::delete('/attendance/leave-types/{id}', [LeaveTypesController::class, 'destroy']);
 
-    Route::get('/attendance/leave-requests', [\App\Http\Controllers\LeaveRequestsController::class, 'index']);
-    Route::post('/attendance/leave-requests', [\App\Http\Controllers\LeaveRequestsController::class, 'store']);
-    Route::get('/attendance/leave-requests/{id}', [\App\Http\Controllers\LeaveRequestsController::class, 'show']);
-    Route::put('/attendance/leave-requests/{id}', [\App\Http\Controllers\LeaveRequestsController::class, 'update']);
-    Route::post('/attendance/leave-requests/{id}/approve', [\App\Http\Controllers\LeaveRequestsController::class, 'approve']);
-    Route::post('/attendance/leave-requests/{id}/reject', [\App\Http\Controllers\LeaveRequestsController::class, 'reject']);
+    Route::get('/attendance/leave-requests', [LeaveRequestsController::class, 'index']);
+    Route::post('/attendance/leave-requests', [LeaveRequestsController::class, 'store']);
+    Route::get('/attendance/leave-requests/{id}', [LeaveRequestsController::class, 'show']);
+    Route::put('/attendance/leave-requests/{id}', [LeaveRequestsController::class, 'update']);
+    Route::post('/attendance/leave-requests/{id}/approve', [LeaveRequestsController::class, 'approve']);
+    Route::post('/attendance/leave-requests/{id}/reject', [LeaveRequestsController::class, 'reject']);
 
-    Route::get('/attendance/overtimes', [\App\Http\Controllers\OvertimeRequestsController::class, 'index']);
-    Route::post('/attendance/overtimes', [\App\Http\Controllers\OvertimeRequestsController::class, 'store']);
-    Route::get('/attendance/overtimes/{id}', [\App\Http\Controllers\OvertimeRequestsController::class, 'show']);
-    Route::put('/attendance/overtimes/{id}', [\App\Http\Controllers\OvertimeRequestsController::class, 'update']);
-    Route::post('/attendance/overtimes/{id}/approve', [\App\Http\Controllers\OvertimeRequestsController::class, 'approve']);
-    Route::post('/attendance/overtimes/{id}/reject', [\App\Http\Controllers\OvertimeRequestsController::class, 'reject']);
+    Route::get('/attendance/overtimes', [OvertimeRequestsController::class, 'index']);
+    Route::post('/attendance/overtimes', [OvertimeRequestsController::class, 'store']);
+    Route::get('/attendance/overtimes/{id}', [OvertimeRequestsController::class, 'show']);
+    Route::put('/attendance/overtimes/{id}', [OvertimeRequestsController::class, 'update']);
+    Route::post('/attendance/overtimes/{id}/approve', [OvertimeRequestsController::class, 'approve']);
+    Route::post('/attendance/overtimes/{id}/reject', [OvertimeRequestsController::class, 'reject']);
 
     /**
      * CORE: Roles, Modules, Features, Permissions master
      */
-    Route::get('/roles', [\App\Http\Controllers\RolesController::class, 'index']);
-    Route::post('/roles', [\App\Http\Controllers\RolesController::class, 'store']);
-    Route::put('/roles/{id}', [\App\Http\Controllers\RolesController::class, 'update']);
-    Route::delete('/roles/{id}', [\App\Http\Controllers\RolesController::class, 'destroy']);
-    Route::get('/roles/{id}/permissions', [\App\Http\Controllers\RolesController::class, 'permissions']);
-    Route::put('/roles/{id}/permissions', [\App\Http\Controllers\RolesController::class, 'setPermissions']);
+    Route::get('/roles', [RolesController::class, 'index']);
+    Route::post('/roles', [RolesController::class, 'store']);
+    Route::put('/roles/{id}', [RolesController::class, 'update']);
+    Route::delete('/roles/{id}', [RolesController::class, 'destroy']);
+    Route::get('/roles/{id}/permissions', [RolesController::class, 'permissions']);
+    Route::put('/roles/{id}/permissions', [RolesController::class, 'setPermissions']);
 
-    Route::get('/modules', [\App\Http\Controllers\ModulesController::class, 'index']);
-    Route::post('/modules', [\App\Http\Controllers\ModulesController::class, 'store']);
-    Route::put('/modules/{id}', [\App\Http\Controllers\ModulesController::class, 'update']);
-    Route::delete('/modules/{id}', [\App\Http\Controllers\ModulesController::class, 'destroy']);
+    Route::get('/modules', [ModulesController::class, 'index']);
+    Route::post('/modules', [ModulesController::class, 'store']);
+    Route::put('/modules/{id}', [ModulesController::class, 'update']);
+    Route::delete('/modules/{id}', [ModulesController::class, 'destroy']);
 
-    Route::get('/features', [\App\Http\Controllers\FeaturesController::class, 'index']);
-    Route::post('/features', [\App\Http\Controllers\FeaturesController::class, 'store']);
-    Route::put('/features/{id}', [\App\Http\Controllers\FeaturesController::class, 'update']);
-    Route::delete('/features/{id}', [\App\Http\Controllers\FeaturesController::class, 'destroy']);
+    Route::get('/features', [FeaturesController::class, 'index']);
+    Route::post('/features', [FeaturesController::class, 'store']);
+    Route::put('/features/{id}', [FeaturesController::class, 'update']);
+    Route::delete('/features/{id}', [FeaturesController::class, 'destroy']);
 
-    Route::get('/permissions/master', [\App\Http\Controllers\PermissionsMasterController::class, 'index']);
+    Route::get('/permissions/master', [PermissionsMasterController::class, 'index']);
 
     /**
      * MENUS (admin)
      */
-    Route::get('/menus', [\App\Http\Controllers\MenuAdminController::class, 'menus']);
-    Route::post('/menus', [\App\Http\Controllers\MenuAdminController::class, 'createMenu']);
-    Route::put('/menus/{id}', [\App\Http\Controllers\MenuAdminController::class, 'updateMenu']);
-    Route::delete('/menus/{id}', [\App\Http\Controllers\MenuAdminController::class, 'deleteMenu']);
-    Route::get('/menus/{id}/items', [\App\Http\Controllers\MenuAdminController::class, 'items']);
-    Route::post('/menus/{id}/items', [\App\Http\Controllers\MenuAdminController::class, 'createItem']);
-    Route::put('/menu-items/{itemId}', [\App\Http\Controllers\MenuAdminController::class, 'updateItem']);
-    Route::delete('/menu-items/{itemId}', [\App\Http\Controllers\MenuAdminController::class, 'deleteItem']);
+    Route::get('/menus', [MenuAdminController::class, 'menus']);
+    Route::post('/menus', [MenuAdminController::class, 'createMenu']);
+    Route::put('/menus/{id}', [MenuAdminController::class, 'updateMenu']);
+    Route::delete('/menus/{id}', [MenuAdminController::class, 'deleteMenu']);
+    Route::get('/menus/{id}/items', [MenuAdminController::class, 'items']);
+    Route::post('/menus/{id}/items', [MenuAdminController::class, 'createItem']);
+    Route::put('/menu-items/{itemId}', [MenuAdminController::class, 'updateItem']);
+    Route::delete('/menu-items/{itemId}', [MenuAdminController::class, 'deleteItem']);
 
     /**
      * AUDIT LOGS
      */
-    Route::get('/audit-logs', [\App\Http\Controllers\AuditLogsController::class, 'index']);
+    Route::get('/audit-logs', [AuditLogsController::class, 'index']);
 
     /**
      * USERS (admin)
      */
-    Route::get('/users', [\App\Http\Controllers\UsersController::class, 'index']);
-    Route::post('/users', [\App\Http\Controllers\UsersController::class, 'store']);
-    Route::get('/users/{id}', [\App\Http\Controllers\UsersController::class, 'show']);
-    Route::put('/users/{id}', [\App\Http\Controllers\UsersController::class, 'update']);
-    Route::delete('/users/{id}', [\App\Http\Controllers\UsersController::class, 'destroy']);
-    Route::get('/users/{id}/roles', [\App\Http\Controllers\UsersController::class, 'roles']);
-    Route::put('/users/{id}/roles', [\App\Http\Controllers\UsersController::class, 'setRoles']);
-    Route::get('/users/{id}/permissions', [\App\Http\Controllers\UsersController::class, 'permissions']);
-    Route::put('/users/{id}/permissions', [\App\Http\Controllers\UsersController::class, 'setPermissions']);
-    Route::get('/users/{id}/profile', [\App\Http\Controllers\UsersController::class, 'profile']);
-    Route::put('/users/{id}/profile', [\App\Http\Controllers\UsersController::class, 'updateProfile']);
+    Route::get('/users', [UsersController::class, 'index']);
+    Route::post('/users', [UsersController::class, 'store']);
+    Route::get('/users/{id}', [UsersController::class, 'show']);
+    Route::put('/users/{id}', [UsersController::class, 'update']);
+    Route::delete('/users/{id}', [UsersController::class, 'destroy']);
+    Route::get('/users/{id}/roles', [UsersController::class, 'roles']);
+    Route::put('/users/{id}/roles', [UsersController::class, 'setRoles']);
+    Route::get('/users/{id}/permissions', [UsersController::class, 'permissions']);
+    Route::put('/users/{id}/permissions', [UsersController::class, 'setPermissions']);
+    Route::get('/users/{id}/profile', [UsersController::class, 'profile']);
+    Route::put('/users/{id}/profile', [UsersController::class, 'updateProfile']);
 });
 
 /*
