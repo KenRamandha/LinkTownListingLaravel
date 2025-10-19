@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
+use App\Support\AttendanceCache;
 
 class AttendanceShiftsController extends Controller
 {
@@ -52,6 +53,10 @@ class AttendanceShiftsController extends Controller
                 $payload['company_id'] = $r->user()->company_id;
             }
             DB::table('shifts')->insert($payload);
+            $cacheCompany = $this->shiftHasCompanyColumn()
+                ? ($payload['company_id'] ?? $r->user()->company_id)
+                : '__global__';
+            AttendanceCache::forgetShift($cacheCompany, $id);
             return $this->ok(['id' => $id], 'Shift dibuat', [], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -75,11 +80,15 @@ class AttendanceShiftsController extends Controller
             if ($this->shiftHasCompanyColumn()) {
                 $query->where('company_id', $r->user()->company_id);
             }
-            $exists = $query->exists();
-            if (!$exists) return $this->fail('Shift tidak ditemukan', 404, 'NOT_FOUND');
+            $record = $query->first();
+            if (!$record) return $this->fail('Shift tidak ditemukan', 404, 'NOT_FOUND');
             $upd = array_filter($r->only('name', 'start_time', 'end_time', 'timezone'), fn($v) => !is_null($v));
             $upd['updated_at'] = now();
             $query->update($upd);
+            $cacheCompany = $this->shiftHasCompanyColumn()
+                ? ($record->company_id ?? $r->user()->company_id)
+                : '__global__';
+            AttendanceCache::forgetShift($cacheCompany, $id);
             return $this->ok(['id' => $id], 'Shift diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -97,8 +106,13 @@ class AttendanceShiftsController extends Controller
             if ($this->shiftHasCompanyColumn()) {
                 $query->where('company_id', $r->user()->company_id);
             }
-            $count = $query->delete();
-            if (!$count) return $this->fail('Shift tidak ditemukan', 404, 'NOT_FOUND');
+            $record = $query->first();
+            if (!$record) return $this->fail('Shift tidak ditemukan', 404, 'NOT_FOUND');
+            $query->delete();
+            $cacheCompany = $this->shiftHasCompanyColumn()
+                ? ($record->company_id ?? $r->user()->company_id)
+                : '__global__';
+            AttendanceCache::forgetShift($cacheCompany, $id);
             return $this->ok(null, 'Shift dihapus');
         } catch (Throwable $e) {
             report($e);

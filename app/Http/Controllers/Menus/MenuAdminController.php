@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Support\MenuCache;
 
 class MenuAdminController extends Controller
 {
@@ -31,6 +32,7 @@ class MenuAdminController extends Controller
             $u = $r->user();
             $id = (string)Str::orderedUuid();
             DB::table('menus')->insert(['id' => $id, 'company_id' => $u->company_id, 'name' => $r->name, 'key' => $r->key, 'is_active' => $r->is_active, 'created_at' => now(), 'updated_at' => now()]);
+            MenuCache::forget($u->company_id, $r->key);
             return $this->ok(['id' => $id], 'Menu dibuat', [], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -45,11 +47,15 @@ class MenuAdminController extends Controller
             if (!$r->user()->hasPermission('menus:update')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
             $r->validate(['name' => 'nullable|string|max:120', 'key' => 'nullable|string|max:80', 'is_active' => 'nullable|boolean']);
             $u = $r->user();
-            $exists = DB::table('menus')->where('company_id', $u->company_id)->where('id', $id)->exists();
-            if (!$exists) return $this->fail('Menu tidak ditemukan', 404, 'NOT_FOUND');
+            $menu = DB::table('menus')->where('company_id', $u->company_id)->where('id', $id)->first();
+            if (!$menu) return $this->fail('Menu tidak ditemukan', 404, 'NOT_FOUND');
             $upd = array_filter($r->only('name', 'key', 'is_active'), fn($v) => !is_null($v));
             $upd['updated_at'] = now();
             DB::table('menus')->where('id', $id)->update($upd);
+            MenuCache::forget($menu->company_id, $menu->key);
+            if (array_key_exists('key', $upd) && $upd['key'] !== $menu->key) {
+                MenuCache::forget($menu->company_id, $upd['key']);
+            }
             return $this->ok(['id' => $id], 'Menu diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -63,8 +69,10 @@ class MenuAdminController extends Controller
         try {
             if (!$r->user()->hasPermission('menus:delete')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
             $u = $r->user();
-            $count = DB::table('menus')->where('company_id', $u->company_id)->where('id', $id)->delete();
-            if (!$count) return $this->fail('Menu tidak ditemukan', 404, 'NOT_FOUND');
+            $menu = DB::table('menus')->where('company_id', $u->company_id)->where('id', $id)->first();
+            if (!$menu) return $this->fail('Menu tidak ditemukan', 404, 'NOT_FOUND');
+            DB::table('menus')->where('id', $id)->delete();
+            MenuCache::forget($menu->company_id, $menu->key);
             return $this->ok(null, 'Menu dihapus');
         } catch (Throwable $e) {
             report($e);
@@ -111,6 +119,7 @@ class MenuAdminController extends Controller
                 'created_at' => now(),
                 'updated_at' => now()
             ]));
+            MenuCache::forgetByMenuId($menuId);
             return $this->ok(['id' => $id], 'Menu item dibuat', [], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -140,11 +149,12 @@ class MenuAdminController extends Controller
                 'badge_expr' => 'nullable|string|max:160',
                 'meta_json' => 'nullable'
             ]);
-            $exists = DB::table('menu_items')->where('id', $itemId)->exists();
-            if (!$exists) return $this->fail('Menu item tidak ditemukan', 404, 'NOT_FOUND');
+            $item = DB::table('menu_items')->where('id', $itemId)->first();
+            if (!$item) return $this->fail('Menu item tidak ditemukan', 404, 'NOT_FOUND');
             $upd = array_filter($r->only(['parent_id', 'type', 'label', 'icon', 'route', 'url_external', 'module_id', 'feature_id', 'permission_key', 'visible_if_employee', 'platform', 'sort_order', 'is_divider', 'badge_expr', 'meta_json']), fn($v) => !is_null($v));
             $upd['updated_at'] = now();
             DB::table('menu_items')->where('id', $itemId)->update($upd);
+            MenuCache::forgetByMenuId($item->menu_id);
             return $this->ok(['id' => $itemId], 'Menu item diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -157,8 +167,10 @@ class MenuAdminController extends Controller
     {
         try {
             if (!$r->user()->hasPermission('menu_items:delete')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
-            $count = DB::table('menu_items')->where('id', $itemId)->delete();
-            if (!$count) return $this->fail('Menu item tidak ditemukan', 404, 'NOT_FOUND');
+            $item = DB::table('menu_items')->where('id', $itemId)->first();
+            if (!$item) return $this->fail('Menu item tidak ditemukan', 404, 'NOT_FOUND');
+            DB::table('menu_items')->where('id', $itemId)->delete();
+            MenuCache::forgetByMenuId($item->menu_id);
             return $this->ok(null, 'Menu item dihapus');
         } catch (Throwable $e) {
             report($e);

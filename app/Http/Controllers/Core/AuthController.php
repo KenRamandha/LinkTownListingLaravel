@@ -12,6 +12,7 @@ use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Support\LocalCache;
 
 class AuthController extends Controller
 {
@@ -146,6 +147,14 @@ class AuthController extends Controller
 
     private function purgeExpiredTokens(?User $user = null): void
     {
+        $cacheKey = $user
+            ? 'pat:purge:' . $user->getKey()
+            : 'pat:purge:global';
+
+        if (!LocalCache::add($cacheKey, true, 60)) {
+            return;
+        }
+
         $query = PersonalAccessToken::query()
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', now());

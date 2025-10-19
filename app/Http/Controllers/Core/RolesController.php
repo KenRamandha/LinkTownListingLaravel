@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Support\UserCache;
 
 class RolesController extends Controller
 {
@@ -63,8 +64,12 @@ class RolesController extends Controller
         try {
             if (!$r->user()->hasPermission('roles:delete')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
             $u = $r->user();
+            $userIds = DB::table('user_roles')->where('role_id', $id)->pluck('user_id')->all();
             $count = DB::table('roles')->where('company_id', $u->company_id)->where('id', $id)->delete();
             if (!$count) return $this->fail('Role tidak ditemukan', 404, 'NOT_FOUND');
+            if ($userIds) {
+                UserCache::forgetPermissions($userIds);
+            }
             return $this->ok(null, 'Role dihapus');
         } catch (Throwable $e) {
             report($e);
@@ -102,6 +107,7 @@ class RolesController extends Controller
                 ->first();
             if (!$role) return $this->fail('Role tidak ditemukan', 404, 'NOT_FOUND');
             $r->validate(['permissions' => 'required|array|min:1', 'permissions.*.permission_id' => 'required|string', 'permissions.*.allow' => 'required|boolean']);
+            $userIds = DB::table('user_roles')->where('role_id', $id)->pluck('user_id')->all();
             DB::transaction(function () use ($r, $id) {
                 foreach ($r->permissions as $p) {
                     $exists = DB::table('role_permissions')->where('role_id', $id)->where('permission_id', $p['permission_id'])->exists();
@@ -112,6 +118,9 @@ class RolesController extends Controller
                     }
                 }
             });
+            if ($userIds) {
+                UserCache::forgetPermissions($userIds);
+            }
             return $this->ok(null, 'Permissions diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;

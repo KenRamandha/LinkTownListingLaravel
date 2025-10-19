@@ -12,6 +12,8 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 use App\Models\Attendance\ShiftMapping;
+use App\Support\AttendanceCache;
+use App\Support\LocalCache;
 
 class AttendanceController extends Controller
 {
@@ -27,10 +29,22 @@ class AttendanceController extends Controller
                 return $this->fail('User bukan karyawan', 403, 'FORBIDDEN');
             }
 
-            $list = DB::table('geofences')
-                ->where('company_id', $u->company_id)
-                ->orderBy('name')
-                ->get(['id', 'name', 'latitude', 'longitude', 'radius_m']);
+            $geofenceRows = AttendanceCache::rememberGeofences($u->company_id, function () use ($u) {
+                return DB::table('geofences')
+                    ->where('company_id', $u->company_id)
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'latitude', 'longitude', 'radius_m'])
+                    ->map(fn ($row) => [
+                        'id' => $row->id,
+                        'name' => $row->name,
+                        'latitude' => (float) $row->latitude,
+                        'longitude' => (float) $row->longitude,
+                        'radius_m' => (float) $row->radius_m,
+                    ])
+                    ->all();
+            });
+
+            $list = collect($geofenceRows)->map(fn ($row) => (object) $row);
 
             $lat = $r->query('lat');
             $lng = $r->query('lng');
@@ -114,7 +128,7 @@ class AttendanceController extends Controller
                 $payload['note'] = $r->filled('note') ? trim($payload['note']) : null;
             }
 
-            $logTableExists = Schema::hasTable('attendance_logs');
+            $logTableExists = $this->attendanceLogsTableExists();
 
             $result = DB::transaction(function () use ($u, $now, $workDate, $photoPath, $payload, $r, $logTableExists) {
                 $mapping = ShiftMapping::lockForUpdate()
@@ -263,6 +277,9 @@ class AttendanceController extends Controller
                 $response['log_id'] = $result['log_id'];
             }
 
+            AttendanceCache::forgetUserLogs($u->id, $workDate);
+            AttendanceCache::forgetOverview($u->company_id, $u->id, $workDate);
+
             return $this->ok($response, 'Clock berhasil', [], 201);
         } catch (ValidationException $e) {
             throw $e;
@@ -301,74 +318,99 @@ class AttendanceController extends Controller
             }
 
             $date = $r->query('date', now('Asia/Jakarta')->toDateString());
+            $latInput = $r->query('lat');
+            $lngInput = $r->query('lng');
+            $lat = is_null($latInput) ? null : (float) $latInput;
+            $lng = is_null($lngInput) ? null : (float) $lngInput;
 
-            $companyName = null;
-            if (Schema::hasTable('companies')) {
-                try {
-                    $companyName = DB::table('companies')->where('id', $u->company_id)->value('name');
-                } catch (Throwable $e) {
+            $data = AttendanceCache::rememberOverview(
+                $u->company_id,
+                $u->id,
+                $date,
+                $lat,
+                $lng,
+                function () use ($u, $date, $lat, $lng) {
                     $companyName = null;
-                }
-            }
+                    if ($this->companiesTableExists()) {
+                        try {
+                            $companyName = LocalCache::remember("company_name:{$u->company_id}", 600, function () use ($u) {
+                                return DB::table('companies')->where('id', $u->company_id)->value('name');
+                            });
+                        } catch (Throwable $e) {
+                            $companyName = null;
+                        }
+                    }
 
-            $locations = DB::table('geofences')
-                ->where('company_id', $u->company_id)
-                ->orderBy('name')
-                ->get(['id', 'name', 'latitude', 'longitude', 'radius_m']);
+                    $geofenceRows = AttendanceCache::rememberGeofences($u->company_id, function () use ($u) {
+                        return DB::table('geofences')
+                            ->where('company_id', $u->company_id)
+                            ->orderBy('name')
+                            ->get(['id', 'name', 'latitude', 'longitude', 'radius_m'])
+                            ->map(fn ($row) => [
+                                'id' => $row->id,
+                                'name' => $row->name,
+                                'latitude' => (float) $row->latitude,
+                                'longitude' => (float) $row->longitude,
+                                'radius_m' => (float) $row->radius_m,
+                            ])
+                            ->all();
+                    });
 
-            $lat = $r->query('lat');
-            $lng = $r->query('lng');
-            $anyAllowed = null;
-            if (!is_null($lat) && !is_null($lng)) {
-                $lat = (float) $lat;
-                $lng = (float) $lng;
-                $locations = $locations->map(function ($g) use ($lat, $lng, &$anyAllowed) {
-                    $d = $this->distanceMeters($lat, $lng, (float)$g->latitude, (float)$g->longitude);
-                    $allowed = $d <= (float)$g->radius_m;
-                    $g->distance_m = (int) round($d);
-                    $g->allowed = $allowed;
-                    $anyAllowed = is_null($anyAllowed) ? $allowed : ($anyAllowed || $allowed);
-                    return $g;
-                })->sortBy('distance_m')->values();
-            }
+                    $locations = collect($geofenceRows)->map(fn ($row) => (object) $row);
 
-            $mapping = ShiftMapping::where('user_id', $u->id)
-                ->where('work_date', $date)
-                ->first();
+                    $anyAllowed = null;
+                    if (!is_null($lat) && !is_null($lng)) {
+                        $locations = $locations->map(function ($g) use ($lat, $lng, &$anyAllowed) {
+                            $d = $this->distanceMeters($lat, $lng, (float) $g->latitude, (float) $g->longitude);
+                            $allowed = $d <= (float) $g->radius_m;
+                            $g->distance_m = (int) round($d);
+                            $g->allowed = $allowed;
+                            $anyAllowed = is_null($anyAllowed) ? $allowed : ($anyAllowed || $allowed);
+                            return $g;
+                        })->sortBy('distance_m')->values();
+                    }
 
-            $shift = null;
-            if ($mapping && $mapping->shift_id) {
-                $s = $this->findShiftForCompany($mapping->shift_id, $u->company_id);
-                if ($s) {
-                    $shift = [
-                        'id' => $s->id,
-                        'name' => $s->name,
-                        'start_time' => $s->start_time,
-                        'end_time' => $s->end_time,
-                        'timezone' => $s->timezone ?? null,
+                    $mapping = ShiftMapping::where('user_id', $u->id)
+                        ->where('work_date', $date)
+                        ->first();
+
+                    $shift = null;
+                    if ($mapping && $mapping->shift_id) {
+                        $s = $this->findShiftForCompany($mapping->shift_id, $u->company_id);
+                        if ($s) {
+                            $shift = [
+                                'id' => $s->id,
+                                'name' => $s->name,
+                                'start_time' => $s->start_time,
+                                'end_time' => $s->end_time,
+                                'timezone' => $s->timezone ?? null,
+                            ];
+                        }
+                    }
+
+                    $attendance = null;
+                    if ($mapping) {
+                        $attendance = $this->transformMapping($mapping, $date);
+                    }
+
+                    $logs = $this->loadLogsForDate($u->id, $date);
+
+                    return [
+                        'company' => [
+                            'id' => $u->company_id,
+                            'name' => $companyName,
+                        ],
+                        'date' => $date,
+                        'shift' => $shift,
+                        'attendance' => $attendance,
+                        'locations' => $locations,
+                        'any_allowed' => $anyAllowed,
+                        'logs' => $logs,
                     ];
                 }
-            }
+            );
 
-            $attendance = null;
-            if ($mapping) {
-                $attendance = $this->transformMapping($mapping, $date);
-            }
-
-            $logs = $this->loadLogsForDate($u->id, $date);
-
-            return $this->ok([
-                'company' => [
-                    'id' => $u->company_id,
-                    'name' => $companyName,
-                ],
-                'date' => $date,
-                'shift' => $shift,
-                'attendance' => $attendance,
-                'locations' => $locations,
-                'any_allowed' => $anyAllowed,
-                'logs' => $logs,
-            ], 'Attendance overview');
+            return $this->ok($data, 'Attendance overview');
         } catch (ValidationException $e) {
             throw $e;
         } catch (Throwable $e) {
@@ -377,13 +419,37 @@ class AttendanceController extends Controller
         }
     }
 
+    private function attendanceLogsTableExists(): bool
+    {
+        static $exists = null;
+        if (is_null($exists)) {
+            $exists = Schema::hasTable('attendance_logs');
+        }
+
+        return $exists;
+    }
+
+    private function companiesTableExists(): bool
+    {
+        static $exists = null;
+        if (is_null($exists)) {
+            $exists = Schema::hasTable('companies');
+        }
+
+        return $exists;
+    }
+
     private function findShiftForCompany(string $shiftId, string $companyId)
     {
-        $query = DB::table('shifts')->where('id', $shiftId);
-        if ($this->shiftHasCompanyColumn()) {
-            $query->where('company_id', $companyId);
-        }
-        return $query->first();
+        $cacheCompany = $this->shiftHasCompanyColumn() ? $companyId : '__global__';
+
+        return AttendanceCache::rememberShift($cacheCompany, $shiftId, function () use ($shiftId, $companyId) {
+            $query = DB::table('shifts')->where('id', $shiftId);
+            if ($this->shiftHasCompanyColumn()) {
+                $query->where('company_id', $companyId);
+            }
+            return $query->first();
+        });
     }
 
     private function resolveShiftDateTime($timeValue, string $workDate, string $timezone): ?Carbon
@@ -422,82 +488,84 @@ class AttendanceController extends Controller
 
     private function loadLogsForDate(string $userId, string $date)
     {
-        if (Schema::hasTable('attendance_logs')) {
-            return DB::table('attendance_logs')
-                ->where('user_id', $userId)
+        return AttendanceCache::rememberUserLogs($userId, $date, function () use ($userId, $date) {
+            if ($this->attendanceLogsTableExists()) {
+                return DB::table('attendance_logs')
+                    ->where('user_id', $userId)
+                    ->where('work_date', $date)
+                    ->orderBy('logged_at')
+                    ->get()
+                    ->map(function ($row) {
+                        $row->photo_url = $this->publicUrl($row->photo_url ?? null);
+                        return $row;
+                    })
+                    ->values();
+            }
+
+            $mapping = ShiftMapping::where('user_id', $userId)
                 ->where('work_date', $date)
-                ->orderBy('logged_at')
-                ->get()
-                ->map(function ($row) {
-                    $row->photo_url = $this->publicUrl($row->photo_url ?? null);
-                    return $row;
-                })
-                ->values();
-        }
+                ->first();
 
-        $mapping = ShiftMapping::where('user_id', $userId)
-            ->where('work_date', $date)
-            ->first();
-
-        $logs = collect();
-        if ($mapping) {
-            if ($mapping->checkin_time) {
-                $logs->push((object) [
-                    'type' => 'clock_in',
-                    'logged_at' => $this->formatMappingTime($mapping->checkin_time, $date),
-                    'note' => $mapping->checkin_note,
-                    'photo_url' => $this->publicUrl($mapping->checkin_photo ?? null),
-                    'latitude' => $mapping->checkin_lat,
-                    'longitude' => $mapping->checkin_lng,
-                    'distance' => is_null($mapping->checkin_distance) ? null : (float) $mapping->checkin_distance,
-                    'late' => is_null($mapping->late) ? null : (int) $mapping->late,
-                    'address' => $mapping->checkin_address,
-                    'attendance_status' => $mapping->attendance_status,
-                ]);
-            }
-            if ($mapping->checkout_time) {
-                $logs->push((object) [
-                    'type' => 'clock_out',
-                    'logged_at' => $this->formatMappingTime($mapping->checkout_time, $date),
-                    'note' => $mapping->checkout_note,
-                    'photo_url' => $this->publicUrl($mapping->checkout_photo ?? null),
-                    'latitude' => $mapping->checkout_lat,
-                    'longitude' => $mapping->checkout_lng,
-                    'distance' => is_null($mapping->checkout_distance) ? null : (float) $mapping->checkout_distance,
-                    'early_checkout' => is_null($mapping->early_checkout) ? null : (int) $mapping->early_checkout,
-                    'address' => $mapping->checkout_address,
-                    'attendance_status' => $mapping->attendance_status,
-                ]);
-            }
-            if (!empty($mapping->comment)) {
-                foreach (preg_split('/\r\n|\n/', trim($mapping->comment)) as $line) {
-                    if ($line === '') {
-                        continue;
-                    }
-                    if (preg_match('/^\[(?<type>[A-Z_ ]+)\s*@\s*(?<time>[^]]+)\]\s*(?<note>.*)$/', $line, $matches)) {
-                        $logs->push((object) [
-                            'type' => strtolower(str_replace(' ', '_', $matches['type'])),
-                            'logged_at' => $matches['time'],
-                            'note' => $matches['note'] ?: null,
-                            'photo_url' => null,
-                            'latitude' => null,
-                            'longitude' => null,
-                        ]);
-                    } else {
-                        $logs->push((object) [
-                            'type' => 'note',
-                            'logged_at' => null,
-                            'note' => $line,
-                            'photo_url' => null,
-                            'latitude' => null,
-                            'longitude' => null,
-                        ]);
+            $logs = collect();
+            if ($mapping) {
+                if ($mapping->checkin_time) {
+                    $logs->push((object) [
+                        'type' => 'clock_in',
+                        'logged_at' => $this->formatMappingTime($mapping->checkin_time, $date),
+                        'note' => $mapping->checkin_note,
+                        'photo_url' => $this->publicUrl($mapping->checkin_photo ?? null),
+                        'latitude' => $mapping->checkin_lat,
+                        'longitude' => $mapping->checkin_lng,
+                        'distance' => is_null($mapping->checkin_distance) ? null : (float) $mapping->checkin_distance,
+                        'late' => is_null($mapping->late) ? null : (int) $mapping->late,
+                        'address' => $mapping->checkin_address,
+                        'attendance_status' => $mapping->attendance_status,
+                    ]);
+                }
+                if ($mapping->checkout_time) {
+                    $logs->push((object) [
+                        'type' => 'clock_out',
+                        'logged_at' => $this->formatMappingTime($mapping->checkout_time, $date),
+                        'note' => $mapping->checkout_note,
+                        'photo_url' => $this->publicUrl($mapping->checkout_photo ?? null),
+                        'latitude' => $mapping->checkout_lat,
+                        'longitude' => $mapping->checkout_lng,
+                        'distance' => is_null($mapping->checkout_distance) ? null : (float) $mapping->checkout_distance,
+                        'early_checkout' => is_null($mapping->early_checkout) ? null : (int) $mapping->early_checkout,
+                        'address' => $mapping->checkout_address,
+                        'attendance_status' => $mapping->attendance_status,
+                    ]);
+                }
+                if (!empty($mapping->comment)) {
+                    foreach (preg_split('/\r\n|\n/', trim($mapping->comment)) as $line) {
+                        if ($line === '') {
+                            continue;
+                        }
+                        if (preg_match('/^\[(?<type>[A-Z_ ]+)\s*@\s*(?<time>[^]]+)\]\s*(?<note>.*)$/', $line, $matches)) {
+                            $logs->push((object) [
+                                'type' => strtolower(str_replace(' ', '_', $matches['type'])),
+                                'logged_at' => $matches['time'],
+                                'note' => $matches['note'] ?: null,
+                                'photo_url' => null,
+                                'latitude' => null,
+                                'longitude' => null,
+                            ]);
+                        } else {
+                            $logs->push((object) [
+                                'type' => 'note',
+                                'logged_at' => null,
+                                'note' => $line,
+                                'photo_url' => null,
+                                'latitude' => null,
+                                'longitude' => null,
+                            ]);
+                        }
                     }
                 }
             }
-        }
 
-        return $logs->values();
+            return $logs->values();
+        });
     }
 
     private function shiftHasCompanyColumn(): bool

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\MenuCache;
 use Throwable;
 
 class MenuController extends Controller
@@ -16,70 +17,129 @@ class MenuController extends Controller
             $user = $r->user();
             $companyId = $user->company_id ?? 'CMP-LT';
 
-            $menu = DB::table('menus')->where('company_id', $companyId)->where('key', $key)->first();
-            if (!$menu) return $this->fail('Menu tidak ditemukan', 404, 'NOT_FOUND');
+            $cached = MenuCache::remember($companyId, $key, function () use ($companyId, $key) {
+                $menuRow = DB::table('menus')
+                    ->where('company_id', $companyId)
+                    ->where('key', $key)
+                    ->first();
 
-            $items = DB::table('menu_items')->where('menu_id', $menu->id)->orderBy('sort_order')->get();
+                if (!$menuRow) {
+                    return null;
+                }
+
+                $items = DB::table('menu_items')
+                    ->where('menu_id', $menuRow->id)
+                    ->orderBy('sort_order')
+                    ->get()
+                    ->map(fn ($row) => [
+                        'id' => $row->id,
+                        'parent_id' => $row->parent_id,
+                        'type' => $row->type,
+                        'label' => $row->label,
+                        'icon' => $row->icon,
+                        'route' => $row->route,
+                        'permission_key' => $row->permission_key,
+                    ])
+                    ->all();
+
+                return [
+                    'menu' => [
+                        'id' => $menuRow->id,
+                        'key' => $menuRow->key,
+                    ],
+                    'items' => $items,
+                ];
+            });
+
+            if (!$cached) {
+                return $this->fail('Menu tidak ditemukan', 404, 'NOT_FOUND');
+            }
+
+            $menu = (object) $cached['menu'];
+            $items = $cached['items'];
 
             $visibleForGuestRoot = ['Home', 'Profile'];
-            $has = function ($perm) use ($user) {
-                if (!$user) return false;
-                if (!$perm) return true;
-                return $user->hasPermission($perm);
-            };
+            $permissions = $user ? $user->effectivePermissions() : [];
 
-            $tree = [];
-            $byId = [];
-            $homeNode = null;
-            $profileNode = null;
+            $rendered = MenuCache::rememberRendered(
+                $companyId,
+                $user?->id,
+                $key,
+                function () use ($user, $items, $menu, $visibleForGuestRoot, $permissions) {
+                    $allowed = $user ? array_flip($permissions) : [];
+                    $tree = [];
+                    $byId = [];
+                    $homeNode = null;
+                    $profileNode = null;
 
-            foreach ($items as $it) {
-                $visible = true;
+                    foreach ($items as $it) {
+                        $visible = true;
 
-                if ($user) {
-                    if ($it->permission_key && !$has($it->permission_key)) $visible = false;
-                } else {
-                    $isRoot = $it->parent_id === null;
-                    $visible = $isRoot && in_array($it->label, $visibleForGuestRoot, true);
-                }
+                        $permissionKey = $it['permission_key'] ?? null;
+                        if ($user) {
+                            if ($permissionKey && !isset($allowed[$permissionKey])) {
+                                $visible = false;
+                            }
+                        } else {
+                            $isRoot = ($it['parent_id'] ?? null) === null;
+                            $visible = $isRoot && in_array($it['label'] ?? '', $visibleForGuestRoot, true);
+                        }
 
-                if (!$visible) continue;
+                        if (!$visible) continue;
 
-                $node = [
-                    'id' => $it->id,
-                    'type' => $it->type,
-                    'label' => $it->label,
-                    'icon' => $it->icon,
-                    'route' => $it->route,
-                    'children' => []
-                ];
-                $byId[$it->id] = $node;
+                        $node = [
+                            'id' => $it['id'],
+                            'type' => $it['type'],
+                            'label' => $it['label'],
+                            'icon' => $it['icon'],
+                            'route' => $it['route'],
+                            'children' => []
+                        ];
+                        $byId[$it['id']] = $node;
 
-                if ($it->parent_id === null) {
-                    if ($it->label === 'Home') {
-                        $homeNode = &$byId[$it->id];
-                    } else if ($it->label === 'Profile') {
-                        $profileNode = &$byId[$it->id];
-                    } else {
-                        $tree[] = &$byId[$it->id];
+                        if (($it['parent_id'] ?? null) === null) {
+                            if ($it['label'] === 'Home') {
+                                $homeNode = &$byId[$it['id']];
+                            } else if ($it['label'] === 'Profile') {
+                                $profileNode = &$byId[$it['id']];
+                            } else {
+                                $tree[] = &$byId[$it['id']];
+                            }
+                        } else {
+                            $parentId = $it['parent_id'];
+                            if (isset($byId[$parentId])) {
+                                $byId[$parentId]['children'][] = &$byId[$it['id']];
+                            }
+                        }
                     }
-                } else {
-                    if (isset($byId[$it->parent_id])) {
-                        $byId[$it->parent_id]['children'][] = &$byId[$it->id];
+
+                    $finalTree = [];
+                    if ($homeNode) {
+                        $finalTree[] = $homeNode;
                     }
+                    $finalTree = array_merge($finalTree, $tree);
+                    if ($profileNode) {
+                        $finalTree[] = $profileNode;
+                    }
+
+                    return [
+                        'menu_id' => $menu->id,
+                        'menu_key' => $menu->key,
+                        'items' => $finalTree,
+                        'guest' => !$user,
+                    ];
                 }
-            }
+            );
 
-            $finalTree = [];
-            if ($homeNode) {
-                $finalTree[] = $homeNode;
-            }
-            $finalTree = array_merge($finalTree, $tree);
-            if ($profileNode) {
-                $finalTree[] = $profileNode;
-            }
-
-            return $this->ok(['id' => $menu->id, 'key' => $menu->key, 'items' => $finalTree], 'Menu loaded', ['guest' => !$user]);
+            return $this->ok(
+                [
+                    'id' => $rendered['menu_id'],
+                    'key' => $rendered['menu_key'],
+                    'items' => $rendered['items'],
+                ],
+                'Menu loaded',
+                ['guest' => $rendered['guest']]
+            );
         } catch (Throwable $e) {
             report($e);
             return $this->fail('Gagal memuat menu', 500, 'SERVER_ERROR');

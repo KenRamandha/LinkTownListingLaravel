@@ -7,6 +7,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\DB;
+use App\Support\UserCache;
 
 class User extends Authenticatable
 {
@@ -64,24 +65,94 @@ class User extends Authenticatable
         return $this->hasMany(\App\Models\Menus\MenuUserVisibility::class);
     }
 
+    protected ?array $effectivePermissionCache = null;
+
+    /**
+     * Determine whether the user has the given permission key.
+     */
     public function hasPermission(string $key): bool
     {
-        $ov = DB::table('user_permissions')
-            ->join('permissions', 'permissions.id', '=', 'user_permissions.permission_id')
-            ->where('user_permissions.user_id', $this->id)
-            ->where('permissions.key', $key)
-            ->select('user_permissions.allow')
-            ->first();
-        if ($ov) {
-            return (bool) $ov->allow;
+        if (!$this->getKey()) {
+            return false;
         }
 
-        $roleIds = $this->roles()->pluck('roles.id');
-        return DB::table('role_permissions')
+        $map = $this->resolveEffectivePermissionMap();
+
+        return (bool) ($map[$key] ?? false);
+    }
+
+    /**
+     * Get the effective permissions map or list of keys for the user.
+     *
+     * @param  bool  $onlyAllowedKeys  Return only allowed permission keys when true.
+     * @param  bool  $refresh          Force refresh of the cached map.
+     */
+    public function effectivePermissions(bool $onlyAllowedKeys = true, bool $refresh = false): array
+    {
+        if (!$this->getKey()) {
+            return [];
+        }
+
+        $map = $this->resolveEffectivePermissionMap($refresh);
+
+        if ($onlyAllowedKeys) {
+            return array_keys(array_filter($map));
+        }
+
+        return $map;
+    }
+
+    /**
+     * Clear the cached permission map for the user.
+     */
+    public function refreshEffectivePermissionCache(): void
+    {
+        $this->effectivePermissionCache = null;
+        if ($this->getKey()) {
+            UserCache::forgetPermissions($this->getKey());
+        }
+    }
+
+    /**
+     * Resolve the effective permission map, combining role permissions and overrides.
+     */
+    protected function resolveEffectivePermissionMap(bool $refresh = false): array
+    {
+        if (!$refresh) {
+            if (!is_null($this->effectivePermissionCache)) {
+                return $this->effectivePermissionCache;
+            }
+
+            $cached = UserCache::getPermissions($this->id);
+            if (is_array($cached)) {
+                return $this->effectivePermissionCache = $cached;
+            }
+        }
+
+        $map = [];
+
+        $rolePermissions = DB::table('role_permissions')
+            ->join('user_roles', 'user_roles.role_id', '=', 'role_permissions.role_id')
             ->join('permissions', 'permissions.id', '=', 'role_permissions.permission_id')
-            ->whereIn('role_permissions.role_id', $roleIds)
+            ->where('user_roles.user_id', $this->id)
             ->where('role_permissions.allow', true)
-            ->where('permissions.key', $key)
-            ->exists();
+            ->pluck('permissions.key');
+
+        foreach ($rolePermissions as $key) {
+            $map[$key] = true;
+        }
+
+        $overrides = DB::table('user_permissions')
+            ->join('permissions', 'permissions.id', '=', 'user_permissions.permission_id')
+            ->where('user_permissions.user_id', $this->id)
+            ->get(['permissions.key', 'user_permissions.allow']);
+
+        foreach ($overrides as $row) {
+            $map[$row->key] = (bool) $row->allow;
+        }
+
+        UserCache::putPermissions($this->id, $map);
+
+        return $this->effectivePermissionCache = $map;
     }
 }

@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Models\Core\User;
+use App\Support\UserCache;
 
 class UsersController extends Controller
 {
@@ -17,7 +19,9 @@ class UsersController extends Controller
         try {
             if (!$r->user()->hasPermission('users:view')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
             $companyId = $r->query('company_id', $r->user()->company_id);
-            $q = DB::table('users')->where('company_id', $companyId);
+            $q = DB::table('users')
+                ->where('company_id', $companyId)
+                ->select('id', 'company_id', 'department_id', 'name', 'email', 'status', 'is_employee', 'last_login_at');
             if ($s = $r->query('q')) {
                 $q->where(function ($qq) use ($s) {
                     $qq->where('name', 'like', "%$s%")
@@ -75,7 +79,11 @@ class UsersController extends Controller
     {
         try {
             if (!$r->user()->hasPermission('users:view')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
-            $data = DB::table('users')->where('id', $id)->where('company_id', $r->user()->company_id)->first();
+            $data = DB::table('users')
+                ->select('id', 'company_id', 'department_id', 'name', 'email', 'status', 'is_employee', 'last_login_at', 'created_at', 'updated_at')
+                ->where('id', $id)
+                ->where('company_id', $r->user()->company_id)
+                ->first();
             if (!$data) return $this->fail('User tidak ditemukan', 404, 'NOT_FOUND');
             return $this->ok($data, 'User');
         } catch (Throwable $e) {
@@ -97,7 +105,11 @@ class UsersController extends Controller
                 'is_employee' => 'nullable|boolean',
                 'status' => 'nullable|in:active,suspended,inactive'
             ]);
-            $userRow = DB::table('users')->where('id', $id)->where('company_id', $r->user()->company_id)->first();
+            $userRow = DB::table('users')
+                ->select('id', 'company_id')
+                ->where('id', $id)
+                ->where('company_id', $r->user()->company_id)
+                ->first();
             if (!$userRow) return $this->fail('User tidak ditemukan', 404, 'NOT_FOUND');
             $upd = array_filter($r->only('company_id', 'department_id', 'name', 'email', 'is_employee', 'status'), fn($v) => !is_null($v));
             if (isset($upd['company_id']) && $upd['company_id'] !== $r->user()->company_id) {
@@ -122,6 +134,8 @@ class UsersController extends Controller
             if (!$r->user()->hasPermission('users:delete')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
             $count = DB::table('users')->where('id', $id)->where('company_id', $r->user()->company_id)->delete();
             if (!$count) return $this->fail('User tidak ditemukan', 404, 'NOT_FOUND');
+            UserCache::forgetPermissions($id);
+            UserCache::forgetProfiles($id);
             return $this->ok(null, 'User dihapus');
         } catch (Throwable $e) {
             report($e);
@@ -133,7 +147,11 @@ class UsersController extends Controller
     {
         try {
             if (!$r->user()->hasPermission('users:view')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
-            $userRow = DB::table('users')->where('id', $id)->where('company_id', $r->user()->company_id)->first();
+            $userRow = DB::table('users')
+                ->select('id', 'company_id')
+                ->where('id', $id)
+                ->where('company_id', $r->user()->company_id)
+                ->first();
             if (!$userRow) return $this->fail('User tidak ditemukan', 404, 'NOT_FOUND');
             $roles = DB::table('user_roles')
                 ->join('roles', 'roles.id', '=', 'user_roles.role_id')
@@ -165,6 +183,7 @@ class UsersController extends Controller
                 }
                 if ($rows) DB::table('user_roles')->insert($rows);
             });
+            UserCache::forgetPermissions($id);
             return $this->ok(null, 'User roles diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -178,27 +197,14 @@ class UsersController extends Controller
     {
         try {
             if (!$r->user()->hasPermission('users:view')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
-            $userRow = DB::table('users')->where('id', $id)->where('company_id', $r->user()->company_id)->first();
-            if (!$userRow) return $this->fail('User tidak ditemukan', 404, 'NOT_FOUND');
-            $roleIds = DB::table('user_roles')
-                ->join('roles', 'roles.id', '=', 'user_roles.role_id')
-                ->where('user_roles.user_id', $id)
-                ->where('roles.company_id', $r->user()->company_id)
-                ->pluck('roles.id');
-            $rolePerms = DB::table('role_permissions')
-                ->join('permissions', 'permissions.id', '=', 'role_permissions.permission_id')
-                ->whereIn('role_id', $roleIds)
-                ->where('allow', true)
-                ->pluck('permissions.key');
-            $userOverrides = DB::table('user_permissions')
-                ->join('permissions', 'permissions.id', '=', 'user_permissions.permission_id')
-                ->where('user_id', $id)
-                ->select('permissions.key', 'user_permissions.allow')->get();
-            $eff = collect($rolePerms)->flip()->map(fn() => true)->toArray();
-            foreach ($userOverrides as $ov) {
-                $eff[$ov->key] = (bool)$ov->allow;
-            }
-            return $this->ok(['permissions' => array_keys(array_filter($eff))], 'Effective permissions');
+            $userModel = User::where('id', $id)
+                ->where('company_id', $r->user()->company_id)
+                ->first();
+            if (!$userModel) return $this->fail('User tidak ditemukan', 404, 'NOT_FOUND');
+
+            $permissions = $userModel->effectivePermissions();
+
+            return $this->ok(['permissions' => $permissions], 'Effective permissions');
         } catch (Throwable $e) {
             report($e);
             return $this->fail('Gagal memuat permissions', 500, 'SERVER_ERROR');
@@ -222,6 +228,7 @@ class UsersController extends Controller
                     }
                 }
             });
+            UserCache::forgetPermissions($id);
             return $this->ok(null, 'User permission overrides diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -237,8 +244,8 @@ class UsersController extends Controller
             if (!$r->user()->hasPermission('users:view')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
             $userRow = DB::table('users')->where('id', $id)->where('company_id', $r->user()->company_id)->first();
             if (!$userRow) return $this->fail('User tidak ditemukan', 404, 'NOT_FOUND');
-            $data = DB::table('user_profiles')->where('user_id', $id)->first();
-            return $this->ok($data ?: (object)[], 'User profile');
+            $data = UserCache::rememberProfile($id, fn () => DB::table('user_profiles')->where('user_id', $id)->first());
+            return $this->ok((object) $data, 'User profile');
         } catch (Throwable $e) {
             report($e);
             return $this->fail('Gagal memuat user profile', 500, 'SERVER_ERROR');
@@ -271,6 +278,7 @@ class UsersController extends Controller
                 $payload['updated_at'] = now();
                 DB::table('user_profiles')->insert($payload);
             }
+            UserCache::forgetProfiles($id);
             return $this->ok(null, 'User profile diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
