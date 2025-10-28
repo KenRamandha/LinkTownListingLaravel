@@ -21,6 +21,7 @@ use App\Http\Controllers\Attendance\AttendanceSchedulesController;
 
 use App\Http\Controllers\Audit\AuditLogsController;
 use App\Http\Controllers\Products\ProductController;
+use App\Http\Controllers\Visits\VisitController;
 
 Route::middleware('optional.auth')->group(function () {
     Route::get('/home', [HomeController::class, 'index']);
@@ -61,6 +62,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/attendance/schedules', [AttendanceSchedulesController::class, 'store']);
     Route::put('/attendance/schedules/{id}', [AttendanceSchedulesController::class, 'update']);
     Route::delete('/attendance/schedules/{id}', [AttendanceSchedulesController::class, 'destroy']);
+
+    Route::post('/visits/clock', [VisitController::class, 'clock']);
+    Route::get('/visits/today', [VisitController::class, 'today']);
+    Route::get('/visits/history', [VisitController::class, 'history']);
+    Route::get('/visits/{visit}', [VisitController::class, 'show']);
 
     Route::get('/roles', [RolesController::class, 'index']);
     Route::post('/roles', [RolesController::class, 'store']);
