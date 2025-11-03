@@ -7,7 +7,6 @@ use App\Models\Products\Product;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use App\Support\ProductCache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -26,33 +25,7 @@ class ProductController extends Controller
         $propertyStatus = $validated['property_status'] ?? null;
 
         try {
-            $payload = ProductCache::rememberHome($propertyStatus, $limit, function () use ($propertyStatus, $limit) {
-                $baseQuery = Product::query()
-                    ->with(['images', 'locations'])
-                    ->published()
-                    ->propertyStatus($propertyStatus);
-
-                $latestProperties = (clone $baseQuery)
-                    ->orderByDesc('created_at')
-                    ->limit($limit)
-                    ->get()
-                    ->map(fn (Product $product) => $this->transformProduct($product))
-                    ->values()
-                    ->all();
-
-                $latestListings = (clone $baseQuery)
-                    ->orderByDesc('updated_at')
-                    ->limit($limit)
-                    ->get()
-                    ->map(fn (Product $product) => $this->transformProduct($product))
-                    ->values()
-                    ->all();
-
-                return [
-                    'latest_properties' => $latestProperties,
-                    'latest_listings'   => $latestListings,
-                ];
-            });
+            $payload = $this->buildHomePayload($propertyStatus, $limit);
 
             return $this->ok($payload, 'Berhasil memuat produk home', [
                 'filters' => [
@@ -220,72 +193,7 @@ class ProductController extends Controller
     public function filters()
     {
         try {
-            $payload = ProductCache::rememberFilters(function () {
-                $propertyStatuses = Product::query()
-                    ->whereNotNull('property_status')
-                    ->distinct()
-                    ->orderBy('property_status')
-                    ->pluck('property_status')
-                    ->values()
-                    ->all();
-
-                $labels = Product::query()
-                    ->whereNotNull('label')
-                    ->distinct()
-                    ->orderBy('label')
-                    ->pluck('label')
-                    ->values()
-                    ->all();
-
-                $priceRange = Product::query()
-                    ->selectRaw('MIN(price) as min_price, MAX(price) as max_price')
-                    ->first();
-
-                $productTypes = $this->safeLookup('product_types', ['id', 'name']);
-                $developers = $this->safeLookup('partners', ['id', 'name']);
-                $projects = $this->safeLookup('projects', ['id', 'name']);
-                $places = [];
-
-                if (Schema::hasTable('places') && Schema::hasTable('product_locations')) {
-                    $places = DB::table('places')
-                        ->join('product_locations', 'product_locations.place_id', '=', 'places.id')
-                        ->select('places.id', 'places.name')
-                        ->distinct()
-                        ->orderBy('places.name')
-                        ->get()
-                        ->map(fn ($row) => [
-                            'id'   => $row->id,
-                            'name' => $row->name,
-                        ])
-                        ->all();
-                }
-
-                $tags = Product::query()
-                    ->whereNotNull('tags')
-                    ->pluck('tags')
-                    ->flatMap(function ($value) {
-                        $decoded = is_array($value) ? $value : json_decode($value ?? '[]', true) ?? [];
-                        return collect($decoded)->filter(fn ($tag) => is_string($tag) && $tag !== '');
-                    })
-                    ->unique()
-                    ->sort()
-                    ->values()
-                    ->all();
-
-                return [
-                    'property_statuses' => $propertyStatuses,
-                    'labels'            => $labels,
-                    'price_range'       => [
-                        'min' => $priceRange?->min_price ? (float) $priceRange->min_price : null,
-                        'max' => $priceRange?->max_price ? (float) $priceRange->max_price : null,
-                    ],
-                    'product_types'     => $productTypes,
-                    'developers'        => $developers,
-                    'projects'          => $projects,
-                    'places'            => $places,
-                    'tags'              => $tags,
-                ];
-            });
+            $payload = $this->buildFiltersPayload();
 
             return $this->ok($payload, 'Pilihan filter produk');
         } catch (Throwable $e) {
@@ -298,16 +206,7 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         try {
-            $payload = ProductCache::rememberDetail((string) $product->getKey(), function () use ($product) {
-                $product->load([
-                    'specifications',
-                    'locations',
-                    'layouts',
-                    'images',
-                ]);
-
-                return $this->transformProduct($product, true);
-            });
+            $payload = $this->buildProductDetail($product);
 
             return $this->ok($payload, 'Detail produk');
         } catch (Throwable $e) {
@@ -444,6 +343,115 @@ class ProductController extends Controller
         }
 
         return number_format($numeric, 0, ',', '.');
+    }
+
+    private function buildHomePayload(?string $propertyStatus, int $limit): array
+    {
+        $baseQuery = Product::query()
+            ->with(['images', 'locations'])
+            ->published()
+            ->propertyStatus($propertyStatus);
+
+        $latestProperties = (clone $baseQuery)
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Product $product) => $this->transformProduct($product))
+            ->values()
+            ->all();
+
+        $latestListings = (clone $baseQuery)
+            ->orderByDesc('updated_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Product $product) => $this->transformProduct($product))
+            ->values()
+            ->all();
+
+        return [
+            'latest_properties' => $latestProperties,
+            'latest_listings'   => $latestListings,
+        ];
+    }
+
+    private function buildFiltersPayload(): array
+    {
+        $propertyStatuses = Product::query()
+            ->whereNotNull('property_status')
+            ->distinct()
+            ->orderBy('property_status')
+            ->pluck('property_status')
+            ->values()
+            ->all();
+
+        $labels = Product::query()
+            ->whereNotNull('label')
+            ->distinct()
+            ->orderBy('label')
+            ->pluck('label')
+            ->values()
+            ->all();
+
+        $priceRange = Product::query()
+            ->selectRaw('MIN(price) as min_price, MAX(price) as max_price')
+            ->first();
+
+        $productTypes = $this->safeLookup('product_types', ['id', 'name']);
+        $developers = $this->safeLookup('partners', ['id', 'name']);
+        $projects = $this->safeLookup('projects', ['id', 'name']);
+        $places = [];
+
+        if (Schema::hasTable('places') && Schema::hasTable('product_locations')) {
+            $places = DB::table('places')
+                ->join('product_locations', 'product_locations.place_id', '=', 'places.id')
+                ->select('places.id', 'places.name')
+                ->distinct()
+                ->orderBy('places.name')
+                ->get()
+                ->map(fn ($row) => [
+                    'id'   => $row->id,
+                    'name' => $row->name,
+                ])
+                ->all();
+        }
+
+        $tags = Product::query()
+            ->whereNotNull('tags')
+            ->pluck('tags')
+            ->flatMap(function ($value) {
+                $decoded = is_array($value) ? $value : json_decode($value ?? '[]', true) ?? [];
+                return collect($decoded)->filter(fn ($tag) => is_string($tag) && $tag !== '');
+            })
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        return [
+            'property_statuses' => $propertyStatuses,
+            'labels'            => $labels,
+            'price_range'       => [
+                'min' => $priceRange?->min_price ? (float) $priceRange->min_price : null,
+                'max' => $priceRange?->max_price ? (float) $priceRange->max_price : null,
+            ],
+            'product_types'     => $productTypes,
+            'developers'        => $developers,
+            'projects'          => $projects,
+            'places'            => $places,
+            'tags'              => $tags,
+        ];
+    }
+
+    private function buildProductDetail(Product $product): array
+    {
+        $product->load([
+            'specifications',
+            'locations',
+            'layouts',
+            'images',
+        ]);
+
+        return $this->transformProduct($product, true);
     }
 
     private function parseStringInputs(...$values): array

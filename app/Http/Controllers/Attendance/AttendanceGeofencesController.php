@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
-use App\Support\AttendanceCache;
 
 class AttendanceGeofencesController extends Controller
 {
@@ -47,7 +46,6 @@ class AttendanceGeofencesController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-            AttendanceCache::forgetGeofences($u->company_id);
             return $this->ok(['id' => $id], 'Geofence dibuat', [], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -73,7 +71,6 @@ class AttendanceGeofencesController extends Controller
             $upd = array_filter($r->only('name', 'latitude', 'longitude', 'radius_m'), fn($v) => !is_null($v));
             $upd['updated_at'] = now();
             DB::table('geofences')->where('id', $id)->update($upd);
-            AttendanceCache::forgetGeofences($u->company_id);
             return $this->ok(['id' => $id], 'Geofence diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -90,7 +87,6 @@ class AttendanceGeofencesController extends Controller
             $u = $r->user();
             $count = DB::table('geofences')->where('company_id', $u->company_id)->where('id', $id)->delete();
             if (!$count) return $this->fail('Geofence tidak ditemukan', 404, 'NOT_FOUND');
-            AttendanceCache::forgetGeofences($u->company_id);
             return $this->ok(null, 'Geofence dihapus');
         } catch (Throwable $e) {
             report($e);

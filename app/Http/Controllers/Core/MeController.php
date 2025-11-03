@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Support\UserCache;
 use Throwable;
 
 class MeController extends Controller
@@ -39,9 +38,7 @@ class MeController extends Controller
     {
         try {
             $u = $r->user();
-            $data = UserCache::rememberProfile($u->id, function () use ($u) {
-                return DB::table('user_profiles')->where('user_id', $u->id)->first();
-            });
+            $data = DB::table('user_profiles')->where('user_id', $u->id)->first();
             return $this->ok((object) $data, 'My profile');
         } catch (Throwable $e) {
             report($e);
@@ -72,7 +69,6 @@ class MeController extends Controller
                 ]);
                 DB::table('user_profiles')->insert($payload);
             }
-            UserCache::forgetProfiles($u->id);
             return $this->ok(null, 'Profil diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;

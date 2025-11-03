@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Visits;
 use App\Http\Controllers\Controller;
 use App\Models\Visits\Visit;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -55,34 +54,18 @@ class VisitController extends Controller
                     ? Carbon::parse($validated['visit_time'])
                     : now();
 
-                $visit = DB::transaction(function () use ($user, $validated, $tanggal, $visitTime, $photoPath, $note, $latProvided, $longProvided, $address) {
-                    $openVisit = Visit::query()
-                        ->where('user_id', $user->id)
-                        ->whereNull('visit_out')
-                        ->lockForUpdate()
-                        ->first();
-
-                    if ($openVisit) {
-                        throw ValidationException::withMessages([
-                            'type' => 'Masih ada kunjungan yang belum diselesaikan.',
-                        ]);
-                    }
-
-                    $id = (string) Str::orderedUuid();
-
-                    return Visit::create([
-                        'id'            => $id,
-                        'user_id'       => $user->id,
-                        'tanggal'       => $tanggal,
-                        'visit_in'      => $visitTime,
-                        'foto_in'       => $photoPath,
-                        'address_in'    => $address,
-                        'lat_in'        => $latProvided ? ($validated['lat'] ?? null) : null,
-                        'long_in'       => $longProvided ? ($validated['long'] ?? null) : null,
-                        'keterangan_in' => $note,
-                        'status'        => '0',
-                    ]);
-                });
+                $visit = Visit::create([
+                    'id'            => (string) Str::orderedUuid(),
+                    'user_id'       => $user->id,
+                    'tanggal'       => $tanggal,
+                    'visit_in'      => $visitTime,
+                    'foto_in'       => $photoPath,
+                    'address_in'    => $address,
+                    'lat_in'        => $latProvided ? ($validated['lat'] ?? null) : null,
+                    'long_in'       => $longProvided ? ($validated['long'] ?? null) : null,
+                    'keterangan_in' => $note,
+                    'status'        => '0',
+                ]);
 
                 return $this->ok(
                     $this->transformVisit($visit),
@@ -99,7 +82,8 @@ class VisitController extends Controller
             $visit = DB::transaction(function () use ($user, $validated, $visitTime, $photoPath, $note, $latProvided, $longProvided, $address) {
                 $query = Visit::query()
                     ->where('user_id', $user->id)
-                    ->whereNull('visit_out');
+                    ->whereNull('visit_out')
+                    ->orderByDesc('visit_in');
 
                 if (!empty($validated['visit_id'])) {
                     $query->where('id', $validated['visit_id']);
@@ -156,19 +140,38 @@ class VisitController extends Controller
     public function today(Request $request)
     {
         try {
+            $validated = $request->validate([
+                'per_page' => 'nullable|integer|min:1|max:100',
+            ]);
+
             $user = $request->user();
             $today = now()->toDateString();
+            $perPage = $validated['per_page'] ?? 20;
 
-            $items = Visit::query()
+            $paginator = Visit::query()
                 ->where('user_id', $user->id)
                 ->whereDate('tanggal', $today)
                 ->orderByDesc('visit_in')
-                ->get()
+                ->paginate($perPage)
+                ->withQueryString();
+
+            $items = $paginator->getCollection()
                 ->map(fn(Visit $visit) => $this->transformVisit($visit))
+                ->values()
                 ->all();
 
+            $paginator->setCollection(collect($items));
+
             return $this->ok(
-                ['items' => $items],
+                [
+                    'items'      => $items,
+                    'pagination' => [
+                        'total'        => $paginator->total(),
+                        'per_page'     => $paginator->perPage(),
+                        'current_page' => $paginator->currentPage(),
+                        'last_page'    => $paginator->lastPage(),
+                    ],
+                ],
                 'Daftar kunjungan hari ini',
                 ['tanggal' => $today]
             );
@@ -225,7 +228,6 @@ class VisitController extends Controller
                 $query->where('status', $validated['status']);
             }
 
-            /** @var LengthAwarePaginator $paginator */
             $paginator = $query->paginate($perPage)->withQueryString();
 
             $items = $paginator->getCollection()
@@ -245,7 +247,14 @@ class VisitController extends Controller
                         'last_page'    => $paginator->lastPage(),
                     ],
                 ],
-                'Riwayat kunjungan'
+                'Riwayat kunjungan',
+                [
+                    'filters' => [
+                        'tanggal_mulai'   => $validated['tanggal_mulai'] ?? null,
+                        'tanggal_selesai' => $validated['tanggal_selesai'] ?? null,
+                        'status'          => $validated['status'] ?? null,
+                    ],
+                ]
             );
         } catch (ValidationException $e) {
             throw $e;
@@ -257,8 +266,6 @@ class VisitController extends Controller
 
     private function transformVisit(Visit $visit): array
     {
-        $visit->refresh();
-
         return [
             'id'              => $visit->id,
             'user_id'         => $visit->user_id,

@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Throwable;
 use App\Models\Core\User;
-use App\Support\UserCache;
 
 class UsersController extends Controller
 {
@@ -134,8 +133,6 @@ class UsersController extends Controller
             if (!$r->user()->hasPermission('users:delete')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
             $count = DB::table('users')->where('id', $id)->where('company_id', $r->user()->company_id)->delete();
             if (!$count) return $this->fail('User tidak ditemukan', 404, 'NOT_FOUND');
-            UserCache::forgetPermissions($id);
-            UserCache::forgetProfiles($id);
             return $this->ok(null, 'User dihapus');
         } catch (Throwable $e) {
             report($e);
@@ -183,7 +180,6 @@ class UsersController extends Controller
                 }
                 if ($rows) DB::table('user_roles')->insert($rows);
             });
-            UserCache::forgetPermissions($id);
             return $this->ok(null, 'User roles diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -228,7 +224,6 @@ class UsersController extends Controller
                     }
                 }
             });
-            UserCache::forgetPermissions($id);
             return $this->ok(null, 'User permission overrides diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -244,7 +239,7 @@ class UsersController extends Controller
             if (!$r->user()->hasPermission('users:view')) return $this->fail('Forbidden', 403, 'FORBIDDEN');
             $userRow = DB::table('users')->where('id', $id)->where('company_id', $r->user()->company_id)->first();
             if (!$userRow) return $this->fail('User tidak ditemukan', 404, 'NOT_FOUND');
-            $data = UserCache::rememberProfile($id, fn () => DB::table('user_profiles')->where('user_id', $id)->first());
+            $data = DB::table('user_profiles')->where('user_id', $id)->first();
             return $this->ok((object) $data, 'User profile');
         } catch (Throwable $e) {
             report($e);
@@ -278,7 +273,6 @@ class UsersController extends Controller
                 $payload['updated_at'] = now();
                 DB::table('user_profiles')->insert($payload);
             }
-            UserCache::forgetProfiles($id);
             return $this->ok(null, 'User profile diperbarui');
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
