@@ -47,6 +47,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendance/overview', [AttendanceController::class, 'overview']);
 
     Route::get('/attendance/logs', [AttendanceController::class, 'logs']);
+    Route::get('/attendance/history', [AttendanceController::class, 'history']);
+    Route::get('/attendance/history/{mappingId}', [AttendanceController::class, 'historyDetail']);
 
     Route::get('/attendance/geofences', [AttendanceGeofencesController::class, 'index']);
     Route::post('/attendance/geofences', [AttendanceGeofencesController::class, 'store']);

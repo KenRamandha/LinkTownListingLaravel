@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Attendance;
+
 use App\Http\Controllers\Controller;
 
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class AttendanceController extends Controller
 
             $geofenceRows = $this->loadGeofences($u->company_id);
 
-            $list = collect($geofenceRows)->map(fn ($row) => (object) $row);
+            $list = collect($geofenceRows)->map(fn($row) => (object) $row);
 
             $lat = $r->query('lat');
             $lng = $r->query('lng');
@@ -62,7 +63,7 @@ class AttendanceController extends Controller
 
     private function distanceMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
-        $earth = 6371000; 
+        $earth = 6371000;
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
         $a = sin($dLat / 2) * sin($dLat / 2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) * sin($dLon / 2);
@@ -316,6 +317,220 @@ class AttendanceController extends Controller
         }
     }
 
+    public function history(Request $r)
+    {
+        try {
+            $validated = $r->validate([
+                'date' => 'required|date',
+            ]);
+
+            $u = $r->user();
+            if (!$u->is_employee) {
+                return $this->fail('User bukan karyawan', 403, 'FORBIDDEN');
+            }
+
+            $timezone = config('app.timezone', 'UTC');
+            $target = Carbon::parse($validated['date'], $timezone);
+            $start = $target->copy()->startOfMonth();
+            $end = $target->copy()->endOfMonth();
+
+            $mappings = ShiftMapping::with('shift')
+                ->where('user_id', $u->id)
+                ->whereBetween('work_date', [$start->toDateString(), $end->toDateString()])
+                ->get()
+                ->keyBy(function (ShiftMapping $mapping) {
+                    $workDate = $mapping->work_date;
+                    if ($workDate instanceof \DateTimeInterface) {
+                        return $workDate->format('Y-m-d');
+                    }
+                    return Carbon::parse($workDate)->toDateString();
+                });
+
+            $dayOffStatuses = ['holiday', 'libur', 'off', 'leave', 'izin', 'cuti'];
+            $absentStatuses = ['absent', 'alpha', 'tidak_hadir', 'tidak_masuk', 'not_present'];
+            $dayOffKeywords = array_values(array_filter($dayOffStatuses, fn($keyword) => $keyword !== 'off'));
+            $dayOffKeywords = array_values(array_unique(array_merge($dayOffKeywords, ['day off', 'day-off', 'off day', 'off-day'])));
+
+            $summary = [
+                'absent' => 0,
+                'late_arrival' => 0,
+                'early_checkout' => 0,
+                'missing_clock_in' => 0,
+                'missing_clock_out' => 0,
+            ];
+
+            $items = [];
+            $cursor = $start->copy();
+            while ($cursor->lte($end)) {
+                $dateKey = $cursor->toDateString();
+                /** @var ShiftMapping|null $mapping */
+                $mapping = $mappings->get($dateKey);
+                $shift = $mapping?->shift;
+
+                $statusRaw = $mapping?->attendance_status;
+                $status = $statusRaw ? strtolower($statusRaw) : null;
+                $isDayOff = $status ? in_array($status, $dayOffStatuses, true) : false;
+
+                if (!$isDayOff && $shift?->name) {
+                    $shiftName = Str::of($shift->name)->lower()->trim();
+                    $normalizedShiftName = preg_replace('/\s+/', ' ', (string) $shiftName);
+                    if (in_array($normalizedShiftName, $dayOffStatuses, true)) {
+                        $isDayOff = true;
+                    } else {
+                        if (Str::contains($normalizedShiftName, $dayOffKeywords)) {
+                            $isDayOff = true;
+                        }
+                    }
+                }
+                $isAbsent = $status ? in_array($status, $absentStatuses, true) : false;
+
+                $hasCheckinValue = $mapping && !empty($mapping->checkin_time);
+                $hasCheckoutValue = $mapping && !empty($mapping->checkout_time);
+
+                $clockIn = $mapping ? $this->formatHistoryTime($mapping->checkin_time, $dateKey) : null;
+                $clockOut = $mapping ? $this->formatHistoryTime($mapping->checkout_time, $dateKey) : null;
+
+                if (!$isDayOff) {
+                    if ($mapping) {
+                        if (!$hasCheckinValue && !$hasCheckoutValue && !$isAbsent) {
+                            $isAbsent = true;
+                        }
+                    } else {
+                        $isAbsent = false;
+                    }
+                }
+
+                $lateRaw = $mapping?->late;
+                $earlyRaw = $mapping?->early_checkout;
+                $lateMinutes = (!$isDayOff && !$isAbsent && (int) ($lateRaw ?? 0) > 0) ? (int) $lateRaw : null;
+                $earlyMinutes = (!$isDayOff && !$isAbsent && (int) ($earlyRaw ?? 0) > 0) ? (int) $earlyRaw : null;
+
+                $missingClockIn = (!$isDayOff && !$isAbsent && $mapping && !$hasCheckinValue && $hasCheckoutValue);
+                $missingClockOut = (!$isDayOff && !$isAbsent && $mapping && !$hasCheckoutValue && $hasCheckinValue);
+
+                if ($isAbsent) {
+                    $missingClockIn = false;
+                    $missingClockOut = false;
+                }
+
+                if ($isAbsent) {
+                    $summary['absent']++;
+                }
+                if (!is_null($lateMinutes)) {
+                    $summary['late_arrival']++;
+                }
+                if (!is_null($earlyMinutes)) {
+                    $summary['early_checkout']++;
+                }
+                if ($missingClockIn) {
+                    $summary['missing_clock_in']++;
+                }
+                if ($missingClockOut) {
+                    $summary['missing_clock_out']++;
+                }
+
+                $items[] = [
+                    'date' => $dateKey,
+                    'display_date' => $cursor->translatedFormat('j M'),
+                    'weekday' => $cursor->translatedFormat('l'),
+                    'log_id' => $mapping?->id,
+                    'shift' => [
+                        'id' => $shift?->id,
+                        'name' => $shift?->name ?? ($isDayOff ? 'Libur' : null),
+                    ],
+                    'shift_type' => $shift?->name ?? ($isDayOff ? 'Libur' : null),
+                    'attendance_status' => $statusRaw,
+                    'clock_in' => $clockIn,
+                    'clock_out' => $clockOut,
+                    'late_minutes' => $lateMinutes,
+                    'early_checkout_minutes' => $earlyMinutes,
+                    'is_day_off' => $isDayOff,
+                    'is_absent' => $isAbsent,
+                    'flags' => [
+                        'late' => !is_null($lateMinutes),
+                        'early_checkout' => !is_null($earlyMinutes),
+                        'no_clock_in' => $missingClockIn,
+                        'no_clock_out' => $missingClockOut,
+                    ],
+                ];
+
+                $cursor->addDay();
+            }
+
+            return $this->ok([
+                'period' => [
+                    'month' => $start->format('Y-m'),
+                    'start' => $start->toDateString(),
+                    'end' => $end->toDateString(),
+                    'label' => $start->translatedFormat('F Y'),
+                ],
+                'summary' => $summary,
+                'items' => $items,
+            ], 'Riwayat absensi bulanan', [
+                'requested_date' => $target->toDateString(),
+                'timezone' => $timezone,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            report($e);
+            return $this->fail('Gagal memuat riwayat absensi', 500, 'SERVER_ERROR');
+        }
+    }
+
+    public function historyDetail(Request $r, string $mappingId)
+    {
+        try {
+            $user = $r->user();
+            if (!$user->is_employee) {
+                return $this->fail('User bukan karyawan', 403, 'FORBIDDEN');
+            }
+
+            $mapping = ShiftMapping::with('shift')
+                ->where('id', $mappingId)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$mapping) {
+                return $this->fail('Riwayat absensi tidak ditemukan', 404, 'NOT_FOUND');
+            }
+
+            $workDate = $mapping->work_date;
+            if ($workDate instanceof \DateTimeInterface) {
+                $workDate = $workDate->format('Y-m-d');
+            } else {
+                $workDate = Carbon::parse((string) $workDate)->toDateString();
+            }
+
+            $timezone = config('app.timezone', 'UTC');
+            $dateObject = Carbon::parse($workDate, $timezone);
+            $attendance = $this->transformMapping($mapping, $workDate);
+            $logs = $this->loadLogsForDate($user->id, $workDate);
+
+            return $this->ok([
+                'id' => $mapping->id,
+                'date' => $workDate,
+                'display_date' => $dateObject->translatedFormat('j F Y'),
+                'weekday' => $dateObject->translatedFormat('l'),
+                'attendance_status' => $mapping->attendance_status,
+                'shift' => [
+                    'id' => $mapping->shift?->id,
+                    'name' => $mapping->shift?->name,
+                    'start_time' => $mapping->shift?->start_time,
+                    'end_time' => $mapping->shift?->end_time,
+                    'timezone' => $mapping->shift?->timezone,
+                ],
+                'clock_in' => $this->buildClockSegment($mapping, 'checkin', $workDate),
+                'clock_out' => $this->buildClockSegment($mapping, 'checkout', $workDate),
+                'logs' => $logs,
+                'attendance' => $attendance,
+            ], 'Detail riwayat absensi');
+        } catch (Throwable $e) {
+            report($e);
+            return $this->fail('Gagal memuat detail riwayat absensi', 500, 'SERVER_ERROR');
+        }
+    }
+
     private function attendanceLogsTableExists(): bool
     {
         static $exists = null;
@@ -330,7 +545,7 @@ class AttendanceController extends Controller
     {
         $companyName = $this->resolveCompanyName($user->company_id);
 
-        $locations = collect($this->loadGeofences($user->company_id))->map(fn ($row) => (object) $row);
+        $locations = collect($this->loadGeofences($user->company_id))->map(fn($row) => (object) $row);
 
         $anyAllowed = null;
         if (!is_null($lat) && !is_null($lng)) {
@@ -412,7 +627,7 @@ class AttendanceController extends Controller
             ->where('company_id', $companyId)
             ->orderBy('name')
             ->get(['id', 'name', 'latitude', 'longitude', 'radius_m'])
-            ->map(fn ($row) => [
+            ->map(fn($row) => [
                 'id' => $row->id,
                 'name' => $row->name,
                 'latitude' => (float) $row->latitude,
@@ -481,7 +696,7 @@ class AttendanceController extends Controller
         }
 
         $mapping = ShiftMapping::where('user_id', $userId)
-            ->where('work_date', $date)
+            ->whereDate('work_date', $date)
             ->first();
 
         $logs = collect();
@@ -617,5 +832,77 @@ class AttendanceController extends Controller
         }
 
         return $this->distanceMeters($lat, $lng, (float) $geofence->latitude, (float) $geofence->longitude);
+    }
+
+    private function formatHistoryTime($value, string $workDate): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        $timezone = config('app.timezone', 'UTC');
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value)->setTimezone($timezone)->format('H:i');
+        }
+
+        if (is_string($value)) {
+            $trimmed = trim($value);
+            if ($trimmed === '' || str_contains($trimmed, '0000-00-00')) {
+                return null;
+            }
+
+            try {
+                if (preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $trimmed)) {
+                    $format = strlen($trimmed) === 5 ? 'H:i' : 'H:i:s';
+                    return Carbon::createFromFormat($format, $trimmed, $timezone)->format('H:i');
+                }
+
+                return Carbon::parse($trimmed, $timezone)->format('H:i');
+            } catch (\Throwable $e) {
+                try {
+                    return Carbon::parse($workDate . ' ' . $trimmed, $timezone)->format('H:i');
+                } catch (\Throwable $ex) {
+                    return $trimmed;
+                }
+            }
+        }
+
+        try {
+            return Carbon::parse((string) $value, $timezone)->format('H:i');
+        } catch (\Throwable $e) {
+            return (string) $value;
+        }
+    }
+
+    private function buildClockSegment(ShiftMapping $mapping, string $segment, string $workDate): array
+    {
+        $prefix = $segment === 'checkout' ? 'checkout' : 'checkin';
+        $timeField = $prefix . '_time';
+        $latField = $prefix . '_lat';
+        $lngField = $prefix . '_lng';
+        $noteField = $prefix . '_note';
+        $photoField = $prefix . '_photo';
+        $addressField = $prefix . '_address';
+        $distanceField = $prefix . '_distance';
+
+        $data = [
+            'time' => $this->formatHistoryTime($mapping->{$timeField}, $workDate),
+            'recorded_at' => $this->formatMappingTime($mapping->{$timeField}, $workDate),
+            'note' => $mapping->{$noteField},
+            'photo_url' => $this->publicUrl($mapping->{$photoField} ?? null),
+            'latitude' => is_null($mapping->{$latField}) ? null : (float) $mapping->{$latField},
+            'longitude' => is_null($mapping->{$lngField}) ? null : (float) $mapping->{$lngField},
+            'address' => $mapping->{$addressField},
+            'distance_m' => is_null($mapping->{$distanceField}) ? null : (float) $mapping->{$distanceField},
+        ];
+
+        if ($prefix === 'checkin') {
+            $data['late_minutes'] = is_null($mapping->late) ? null : (int) $mapping->late;
+        } else {
+            $data['early_checkout_minutes'] = is_null($mapping->early_checkout) ? null : (int) $mapping->early_checkout;
+        }
+
+        return $data;
     }
 }
