@@ -4,6 +4,7 @@ namespace App\Models\Products;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 use App\Support\ProductCache;
@@ -119,5 +120,10 @@ class Product extends Model
     public function featuredImages(): HasMany
     {
         return $this->images()->where('featured', true);
+    }
+
+    public function productType(): BelongsTo
+    {
+        return $this->belongsTo(ProductType::class);
     }
 }

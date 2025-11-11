@@ -41,4 +41,9 @@ class ProductLocation extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    public function place(): BelongsTo
+    {
+        return $this->belongsTo(Place::class);
+    }
 }

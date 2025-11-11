@@ -27,9 +27,6 @@ Route::middleware('optional.auth')->group(function () {
     Route::get('/home', [HomeController::class, 'index']);
     Route::get('/menus/{key}', [MenuController::class, 'showPublicAware']);
     Route::get('/products/home', [ProductController::class, 'home']);
-    Route::get('/products/filters', [ProductController::class, 'filters']);
-    Route::get('/products', [ProductController::class, 'index']);
-    Route::get('/products/{product}', [ProductController::class, 'show']);
 });
 
 Route::post('/auth/login', [AuthController::class, 'login']);
