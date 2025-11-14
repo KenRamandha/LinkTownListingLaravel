@@ -20,8 +20,8 @@ class ProductLocation extends Model
     ];
 
     protected $casts = [
-        'latitude'   => 'float',
-        'longitude'  => 'float',
+        'latitude'   => 'string',
+        'longitude'  => 'string',
         'place_id'   => 'int',
         'product_id' => 'int',
     ];

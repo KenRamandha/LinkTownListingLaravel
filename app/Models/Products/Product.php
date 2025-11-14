@@ -59,7 +59,7 @@ class Product extends Model
         'project_id'        => 'int',
         'user_id'           => 'int',
         'order'             => 'int',
-        'nowa'              => 'string',
+        'nowa'              => 'int',
         'benefits'          => 'array',
         'tags'              => 'array',
         'hero_list'         => 'array',

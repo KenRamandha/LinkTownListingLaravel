@@ -27,6 +27,8 @@ Route::middleware('optional.auth')->group(function () {
     Route::get('/home', [HomeController::class, 'index']);
     Route::get('/menus/{key}', [MenuController::class, 'showPublicAware']);
     Route::get('/products/home', [ProductController::class, 'home']);
+    Route::get('/cities/{cityId}/products/top', [ProductController::class, 'topByCity'])->whereNumber('cityId');
+    Route::get('/products/{productId}', [ProductController::class, 'show'])->whereNumber('productId');
 });
 
 Route::post('/auth/login', [AuthController::class, 'login']);

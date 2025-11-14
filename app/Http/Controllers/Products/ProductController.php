@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Products;
 
 use App\Http\Controllers\Controller;
+use App\Models\Products\Product;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -40,14 +42,73 @@ class ProductController extends Controller
         }
     }
 
-    private function buildHomePayload(?string $propertyStatus, int $limit): array
+    public function show(int $productId)
     {
-        $latestProperties = $this->homeBaseQuery($propertyStatus)
+        try {
+            $product = Product::query()
+                ->with([
+                    'productType',
+                    'images'  => fn ($query) => $query->orderByDesc('featured')->orderBy('id'),
+                    'layouts' => fn ($query) => $query->orderBy('id'),
+                    'locations.place.city',
+                    'specifications',
+                ])
+                ->findOrFail($productId);
+
+            $payload = $this->buildProductDetail($product);
+
+            return $this->ok($payload, 'Berhasil memuat detail produk');
+        } catch (ModelNotFoundException $e) {
+            return $this->fail('Produk tidak ditemukan', 404, 'NOT_FOUND');
+        } catch (Throwable $e) {
+            report($e);
+
+            return $this->fail('Gagal memuat detail produk', 500, 'SERVER_ERROR');
+        }
+    }
+
+    public function topByCity(Request $request, int $cityId)
+    {
+        $validated = Validator::validate($request->all(), [
+            'limit'           => ['nullable', 'integer', 'min:1', 'max:20'],
+            'property_status' => ['nullable', 'string'],
+        ]);
+
+        $limit = (int) ($validated['limit'] ?? 6);
+        $propertyStatus = $validated['property_status'] ?? null;
+
+        try {
+            $products = $this->homeBaseQuery($propertyStatus, $cityId)
+                ->orderByDesc('a.created_at')
+                ->limit($limit)
+                ->get();
+
+            $payload = [
+                'products' => $this->formatHomeResults($products),
+            ];
+
+            return $this->ok($payload, 'Berhasil memuat produk berdasarkan kota', [
+                'filters' => [
+                    'city_id'         => $cityId,
+                    'limit'           => $limit,
+                    'property_status' => $propertyStatus,
+                ],
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+
+            return $this->fail('Gagal memuat produk berdasarkan kota', 500, 'SERVER_ERROR');
+        }
+    }
+
+    private function buildHomePayload(?string $propertyStatus, int $limit, ?int $cityId = null): array
+    {
+        $latestProperties = $this->homeBaseQuery($propertyStatus, $cityId)
             ->orderByDesc('a.created_at')
             ->limit($limit)
             ->get();
 
-        $latestListings = $this->homeBaseQuery($propertyStatus)
+        $latestListings = $this->homeBaseQuery($propertyStatus, $cityId)
             ->when($latestProperties->isNotEmpty(), fn(QueryBuilder $query) => $query->whereNotIn('a.id', $latestProperties->pluck('product_id')))
             ->orderByDesc('a.updated_at')
             ->limit($limit)
@@ -59,7 +120,92 @@ class ProductController extends Controller
         ];
     }
 
-    private function homeBaseQuery(?string $propertyStatus): QueryBuilder
+    private function buildProductDetail(Product $product): array
+    {
+        $primaryLocation = $product->locations->first();
+        $place = $primaryLocation?->place;
+        $city = $place?->city;
+
+        return [
+            'id'                 => $product->id,
+            'slug'               => $product->slug,
+            'title'              => $product->title,
+            'code'               => $product->code,
+            'meta_description'   => $product->meta_description,
+            'meta_title'         => $product->meta_title,
+            'around'             => $this->formatArray($product->around),
+            'promo'              => $product->promo,
+            'description'        => $product->description,
+            'benefits'           => $this->formatArray($product->benefits),
+            'tags'               => $this->formatArray($product->tags),
+            'price'              => is_null($product->price) ? null : (float) $product->price,
+            'cicilan_per_bulan'  => $product->cicilan_per_bulan,
+            'label'              => $product->label,
+            'label_color'        => $product->label_color,
+            'product_type_id'    => $product->product_type_id,
+            'link'               => $product->link,
+            'order'              => $product->order,
+            'status'             => $product->status,
+            'image_location'     => $product->image_location,
+            'youtube'            => $product->youtube,
+            'hero_title'         => $product->hero_title,
+            'hero_list'          => $this->formatArray($product->hero_list),
+            'price_header'       => $this->formatArray($product->price_header),
+            'hero_subtitle'      => $product->hero_subtitle,
+            'developer_id'       => $product->developer_id,
+            'tenant'             => $this->formatArray($product->tenant),
+            'featured_partner'   => (bool) $product->featured_partner,
+            'project_id'         => $product->project_id,
+            'user_id'            => $product->user_id,
+            'property_status'    => $product->property_status,
+            'nowa'               => $product->nowa,
+            'namawa'             => $product->namawa,
+            'rental_terms'       => $product->rental_terms,
+            'created_at'         => optional($product->created_at)?->toDateTimeString(),
+            'updated_at'         => optional($product->updated_at)?->toDateTimeString(),
+            'product_type'       => $product->productType ? [
+                'id'          => $product->productType->id,
+                'name'        => $product->productType->name,
+                'slug'        => $product->productType->slug,
+                'title'       => $product->productType->title,
+                'description' => $product->productType->description,
+                'meta_title'  => $product->productType->meta_title,
+                'meta_description' => $product->productType->meta_description,
+                'color'       => $product->productType->color,
+                'position'    => $product->productType->position,
+                'image'       => $product->productType->image,
+            ] : null,
+            'place'              => $place ? [
+                'id'         => $place->id,
+                'city_id'    => $place->city_id,
+                'name'       => $place->name,
+                'slug'       => $place->slug,
+                'featured'   => (bool) $place->featured,
+                'image'      => $place->image,
+                'icon'       => $place->icon,
+                'hero'       => $place->hero,
+                'price'      => is_null($place->price) ? null : (float) $place->price,
+                'price_text' => $place->price_text,
+                'order'      => $place->order,
+                'latitude'   => $place->latitude,
+                'longitude'  => $place->longitude,
+            ] : null,
+            'city'               => $city ? [
+                'id'      => $city->id,
+                'slug'    => $city->slug,
+                'name'    => $city->name,
+                'state'   => $city->state,
+                'country' => $city->country,
+                'image'   => $city->image,
+            ] : null,
+            'specifications'     => $this->formatSpecifications($product->specifications),
+            'images'             => $this->formatImages($product->images),
+            'layouts'            => $this->formatLayouts($product->layouts),
+            'locations'          => $this->formatLocations($product->locations),
+        ];
+    }
+
+    private function homeBaseQuery(?string $propertyStatus, ?int $cityId = null): QueryBuilder
     {
         return DB::table('products as a')
             ->select([
@@ -92,7 +238,8 @@ class ProductController extends Controller
             ->join('places as ad1', 'ad1.id', '=', 'l.place_id')
             ->join('cities as ad2', 'ad1.city_id', '=', 'ad2.id')
             ->whereIn('t.id', self::PRODUCT_TYPE_IDS)
-            ->when($propertyStatus, fn(QueryBuilder $query, string $status) => $query->where('a.property_status', $status));
+            ->when($propertyStatus, fn(QueryBuilder $query, string $status) => $query->where('a.property_status', $status))
+            ->when($cityId, fn(QueryBuilder $query, int $id) => $query->where('ad2.id', $id));
     }
 
     private function formatHomeResults(Collection $items): array
@@ -100,6 +247,7 @@ class ProductController extends Controller
         return $items
             ->map(function ($row) {
                 $payload = (array) $row;
+                $payload['id'] = $row->product_id;
                 $payload['price'] = is_null($row->price) ? null : (float) $row->price;
                 unset($payload['product_id']);
 
@@ -107,5 +255,86 @@ class ProductController extends Controller
             })
             ->values()
             ->all();
+    }
+
+    private function formatSpecifications(Collection $specifications): array
+    {
+        return $specifications
+            ->sortBy('id')
+            ->flatMap(function ($specification) {
+                $value = $specification->value ?? [];
+
+                if (!is_array($value)) {
+                    return [$value];
+                }
+
+                return array_values($value);
+            })
+            ->values()
+            ->all();
+    }
+
+    private function formatImages(Collection $images): array
+    {
+        return $images
+            ->map(function ($image) {
+                return [
+                    'id'         => $image->id,
+                    'url'        => $image->url,
+                    'featured'   => (bool) $image->featured,
+                    'created_at' => optional($image->created_at)?->toDateTimeString(),
+                    'updated_at' => optional($image->updated_at)?->toDateTimeString(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function formatLayouts(Collection $layouts): array
+    {
+        return $layouts
+            ->map(function ($layout) {
+                return [
+                    'id'          => $layout->id,
+                    'image'       => $layout->image,
+                    'description' => $layout->description,
+                    'created_at'  => optional($layout->created_at)?->toDateTimeString(),
+                    'updated_at'  => optional($layout->updated_at)?->toDateTimeString(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function formatLocations(Collection $locations): array
+    {
+        return $locations
+            ->map(function ($location) {
+                return [
+                    'id'         => $location->id,
+                    'address'    => $location->address,
+                    'latitude'   => $location->latitude,
+                    'longitude'  => $location->longitude,
+                    'place_id'   => $location->place_id,
+                    'product_id' => $location->product_id,
+                    'created_at' => optional($location->created_at)?->toDateTimeString(),
+                    'updated_at' => optional($location->updated_at)?->toDateTimeString(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function formatArray($value): array
+    {
+        if (is_array($value)) {
+            return array_values($value);
+        }
+
+        if (is_null($value)) {
+            return [];
+        }
+
+        return [$value];
     }
 }
