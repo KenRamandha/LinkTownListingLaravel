@@ -14,7 +14,8 @@ use Throwable;
 
 class ProductController extends Controller
 {
-    private const PRODUCT_TYPE_IDS = [5, 6, 7, 10, 11];
+    private const PROPERTY_PRODUCT_TYPE_IDS = [1, 2, 3, 4];
+    private const LISTING_PRODUCT_TYPE_IDS  = [5, 6, 7, 10, 11];
 
     public function home(Request $request)
     {
@@ -78,7 +79,7 @@ class ProductController extends Controller
         $propertyStatus = $validated['property_status'] ?? null;
 
         try {
-            $products = $this->homeBaseQuery($propertyStatus, $cityId)
+            $products = $this->homeBaseQuery($propertyStatus, $cityId, self::LISTING_PRODUCT_TYPE_IDS)
                 ->orderByDesc('a.created_at')
                 ->limit($limit)
                 ->get();
@@ -103,14 +104,11 @@ class ProductController extends Controller
 
     private function buildHomePayload(?string $propertyStatus, int $limit, ?int $cityId = null): array
     {
-        $latestProperties = $this->homeBaseQuery($propertyStatus, $cityId)
-            ->orderByDesc('a.created_at')
+        $latestProperties = $this->homeBaseQuery($propertyStatus, $cityId, self::PROPERTY_PRODUCT_TYPE_IDS)
             ->limit($limit)
             ->get();
 
-        $latestListings = $this->homeBaseQuery($propertyStatus, $cityId)
-            ->when($latestProperties->isNotEmpty(), fn(QueryBuilder $query) => $query->whereNotIn('a.id', $latestProperties->pluck('product_id')))
-            ->orderByDesc('a.updated_at')
+        $latestListings = $this->homeBaseQuery($propertyStatus, $cityId, self::LISTING_PRODUCT_TYPE_IDS)
             ->limit($limit)
             ->get();
 
@@ -205,8 +203,10 @@ class ProductController extends Controller
         ];
     }
 
-    private function homeBaseQuery(?string $propertyStatus, ?int $cityId = null): QueryBuilder
+    private function homeBaseQuery(?string $propertyStatus, ?int $cityId = null, ?array $productTypeIds = null): QueryBuilder
     {
+        $typeFilter = $productTypeIds ?: self::LISTING_PRODUCT_TYPE_IDS;
+
         return DB::table('products as a')
             ->select([
                 'a.id as product_id',
@@ -237,7 +237,7 @@ class ProductController extends Controller
             ->join('product_specifications as s', 'a.id', '=', 's.product_id')
             ->join('places as ad1', 'ad1.id', '=', 'l.place_id')
             ->join('cities as ad2', 'ad1.city_id', '=', 'ad2.id')
-            ->whereIn('t.id', self::PRODUCT_TYPE_IDS)
+            ->whereIn('t.id', $typeFilter)
             ->when($propertyStatus, fn(QueryBuilder $query, string $status) => $query->where('a.property_status', $status))
             ->when($cityId, fn(QueryBuilder $query, int $id) => $query->where('ad2.id', $id));
     }

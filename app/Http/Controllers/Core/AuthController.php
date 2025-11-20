@@ -23,11 +23,22 @@ class AuthController extends Controller
     public function login(Request $r)
     {
         try {
-            $r->validate(['email' => 'required|email', 'password' => 'required']);
+            $r->validate(['phone' => 'required|string', 'password' => 'required']);
 
-            $user = User::where('email', $r->email)->first();
+            $normalizedPhone = $this->normalizePhone($r->phone);
+
+            $user = User::with('profile')
+                ->whereHas('profile', function ($q) use ($normalizedPhone, $r) {
+                    $q->where('phone', $normalizedPhone);
+
+                    if ($normalizedPhone !== $r->phone) {
+                        $q->orWhere('phone', $r->phone);
+                    }
+                })
+                ->first();
+
             if (!$user || !Hash::check($r->password, $user->password)) {
-                throw ValidationException::withMessages(['email' => ['Invalid credentials']]);
+                throw ValidationException::withMessages(['phone' => ['Invalid credentials']]);
             }
             if ($user->status !== 'active') {
                 return $this->fail('User is not active', 403, 'FORBIDDEN');
@@ -55,7 +66,7 @@ class AuthController extends Controller
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
-                    'email' => $user->email,
+                    'phone' => optional($user->profile)->phone,
                     'company_id' => $user->company_id,
                     'is_employee' => $user->is_employee
                 ]
@@ -238,5 +249,23 @@ class AuthController extends Controller
         $this->syncTokenState($newToken->accessToken, $abilities, $plainText, $expiresAt);
 
         return $plainText;
+    }
+
+    private function normalizePhone(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', $phone);
+        if ($digits === '') {
+            return trim($phone);
+        }
+
+        if (Str::startsWith($digits, '0')) {
+            $digits = '62' . substr($digits, 1);
+        } elseif (Str::startsWith($digits, '8')) {
+            $digits = '62' . $digits;
+        } elseif (!Str::startsWith($digits, '62')) {
+            $digits = '62' . ltrim($digits, '0');
+        }
+
+        return '+' . $digits;
     }
 }
