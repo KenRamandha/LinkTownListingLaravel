@@ -63,12 +63,59 @@ class ProductController extends Controller
                             ->orWhere('ad2.name', 'like', '%' . $cityValue . '%');
                     });
                 })
-                ->when($minPrice, fn (QueryBuilder $query, $min) => $query->where('a.price', '>=', $min))
-                ->when($maxPrice, fn (QueryBuilder $query, $max) => $query->where('a.price', '<=', $max))
+                ->when($minPrice, fn(QueryBuilder $query, $min) => $query->where('a.price', '>=', $min))
+                ->when($maxPrice, fn(QueryBuilder $query, $max) => $query->where('a.price', '<=', $max))
                 ->orderByDesc('a.created_at')
                 ->paginate($perPage);
 
-            $products = $this->formatHomeResults(collect($paginator->items()));
+            $items = collect($paginator->items());
+            $productIds = $items
+                ->pluck('product_id')
+                ->filter()
+                ->map(fn($id) => (int) $id)
+                ->unique()
+                ->all();
+
+            $imagesByProductId = [];
+            if (!empty($productIds)) {
+                $images = DB::table('product_images')
+                    ->select(['product_id', 'url'])
+                    ->whereIn('product_id', $productIds)
+                    ->orderByDesc('featured')
+                    ->orderBy('id')
+                    ->get();
+
+                foreach ($images as $image) {
+                    $pid = (int) $image->product_id;
+                    if (!array_key_exists($pid, $imagesByProductId)) {
+                        $imagesByProductId[$pid] = [];
+                    }
+                    $imagesByProductId[$pid][] = url($image->url);
+                }
+            }
+
+            $products = $items
+                ->map(function ($row) use ($imagesByProductId) {
+                    $payload = (array) $row;
+                    $productId = (int) $row->product_id;
+
+                    $payload['product_id'] = $productId;
+                    $payload['id']         = $productId;
+                    $payload['price']      = is_null($row->price) ? null : (float) $row->price;
+
+                    $urls = $imagesByProductId[$productId] ?? null;
+                    if (is_array($urls) && !empty($urls)) {
+                        $payload['featured_image_url'] = array_values($urls);
+                    } elseif (array_key_exists('foto', $payload) && !empty($payload['foto'])) {
+                        $payload['featured_image_url'] = [url($payload['foto'])];
+                    } else {
+                        $payload['featured_image_url'] = [];
+                    }
+
+                    return $payload;
+                })
+                ->values()
+                ->all();
 
             $payload = [
                 'products'   => $products,
@@ -130,8 +177,8 @@ class ProductController extends Controller
             $product = Product::query()
                 ->with([
                     'productType',
-                    'images'  => fn ($query) => $query->orderByDesc('featured')->orderBy('id'),
-                    'layouts' => fn ($query) => $query->orderBy('id'),
+                    'images'  => fn($query) => $query->orderByDesc('featured')->orderBy('id'),
+                    'layouts' => fn($query) => $query->orderBy('id'),
                     'locations.place.city',
                     'specifications',
                 ])
@@ -225,7 +272,7 @@ class ProductController extends Controller
             'link'               => $product->link,
             'order'              => $product->order,
             'status'             => $product->status,
-            'image_location'     => $product->image_location,
+            'image_location'     => $product->image_location ? url($product->image_location) : null,
             'youtube'            => $product->youtube,
             'hero_title'         => $product->hero_title,
             'hero_list'          => $this->formatArray($product->hero_list),
@@ -252,7 +299,7 @@ class ProductController extends Controller
                 'meta_description' => $product->productType->meta_description,
                 'color'       => $product->productType->color,
                 'position'    => $product->productType->position,
-                'image'       => $product->productType->image,
+                'image'       => $product->productType->image ? url($product->productType->image) : null,
             ] : null,
             'place'              => $place ? [
                 'id'         => $place->id,
@@ -260,9 +307,9 @@ class ProductController extends Controller
                 'name'       => $place->name,
                 'slug'       => $place->slug,
                 'featured'   => (bool) $place->featured,
-                'image'      => $place->image,
-                'icon'       => $place->icon,
-                'hero'       => $place->hero,
+                'image'      => $place->image ? url($place->image) : null,
+                'icon'       => $place->icon ? url($place->icon) : null,
+                'hero'       => $place->hero ? url($place->hero) : null,
                 'price'      => is_null($place->price) ? null : (float) $place->price,
                 'price_text' => $place->price_text,
                 'order'      => $place->order,
@@ -275,7 +322,7 @@ class ProductController extends Controller
                 'name'    => $city->name,
                 'state'   => $city->state,
                 'country' => $city->country,
-                'image'   => $city->image,
+                'image'   => $city->image ? url($city->image) : null,
             ] : null,
             'specifications'     => $this->formatSpecifications($product->specifications),
             'images'             => $this->formatImages($product->images),
@@ -334,10 +381,10 @@ class ProductController extends Controller
             ->map(function ($row) {
                 $payload = (array) $row;
                 $payload['product_id'] = (int) $row->product_id;
-                $payload['id'] = (int) $row->product_id;
-                $payload['price'] = is_null($row->price) ? null : (float) $row->price;
-                if (array_key_exists('foto', $payload)) {
-                    $payload['featured_image_url'] = $payload['foto'];
+                $payload['id']         = (int) $row->product_id;
+                $payload['price']      = is_null($row->price) ? null : (float) $row->price;
+                if (array_key_exists('foto', $payload) && !empty($payload['foto'])) {
+                    $payload['featured_image_url'] = url($payload['foto']);
                 }
 
                 return $payload;
@@ -369,7 +416,7 @@ class ProductController extends Controller
             ->map(function ($image) {
                 return [
                     'id'         => $image->id,
-                    'url'        => $image->url,
+                    'url'        => url($image->url),
                     'featured'   => (bool) $image->featured,
                     'created_at' => optional($image->created_at)?->toDateTimeString(),
                     'updated_at' => optional($image->updated_at)?->toDateTimeString(),
@@ -385,7 +432,7 @@ class ProductController extends Controller
             ->map(function ($layout) {
                 return [
                     'id'          => $layout->id,
-                    'image'       => $layout->image,
+                    'image'       => $layout->image ? url($layout->image) : null,
                     'description' => $layout->description,
                     'created_at'  => optional($layout->created_at)?->toDateTimeString(),
                     'updated_at'  => optional($layout->updated_at)?->toDateTimeString(),
