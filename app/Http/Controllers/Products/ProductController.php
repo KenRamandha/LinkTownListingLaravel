@@ -17,6 +17,87 @@ class ProductController extends Controller
     private const PROPERTY_PRODUCT_TYPE_IDS = [1, 2, 3, 4];
     private const LISTING_PRODUCT_TYPE_IDS  = [5, 6, 7, 10, 11];
 
+    public function search(Request $request)
+    {
+        $validated = Validator::validate($request->all(), [
+            'q'               => ['nullable', 'string'],
+            'property_status' => ['nullable', 'string'],
+            'city'            => ['nullable', 'string'],
+            'city_id'         => ['nullable', 'integer'],
+            'min_price'       => ['nullable', 'numeric', 'min:0'],
+            'max_price'       => ['nullable', 'numeric', 'min:0'],
+            'page'            => ['nullable', 'integer', 'min:1'],
+            'per_page'        => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        $search         = $validated['q'] ?? null;
+        $propertyStatus = $validated['property_status'] ?? null;
+        $cityId         = $validated['city_id'] ?? null;
+        $city           = $validated['city'] ?? null;
+        $minPrice       = $validated['min_price'] ?? null;
+        $maxPrice       = $validated['max_price'] ?? null;
+        $perPage        = (int) ($validated['per_page'] ?? 12);
+
+        try {
+            $productTypeIds = array_merge(self::PROPERTY_PRODUCT_TYPE_IDS, self::LISTING_PRODUCT_TYPE_IDS);
+
+            /** @var \Illuminate\Contracts\Pagination\LengthAwarePaginator $paginator */
+            $paginator = $this->homeBaseQuery($propertyStatus, $cityId, $productTypeIds)
+                ->when($search, function (QueryBuilder $query, string $keyword) {
+                    $like = '%' . $keyword . '%';
+
+                    $query->where(function (QueryBuilder $inner) use ($like) {
+                        $inner
+                            ->where('a.title', 'like', $like)
+                            ->orWhere('a.hero_subtitle', 'like', $like)
+                            ->orWhere('ad1.name', 'like', $like) // place_name
+                            ->orWhere('l.address', 'like', $like)
+                            ->orWhere('ad2.name', 'like', $like) // city_name
+                            ->orWhere('ad2.state', 'like', $like); // city_state
+                    });
+                })
+                ->when($city, function (QueryBuilder $query, string $cityValue) {
+                    $query->where(function (QueryBuilder $inner) use ($cityValue) {
+                        $inner
+                            ->where('ad2.slug', $cityValue)
+                            ->orWhere('ad2.name', 'like', '%' . $cityValue . '%');
+                    });
+                })
+                ->when($minPrice, fn (QueryBuilder $query, $min) => $query->where('a.price', '>=', $min))
+                ->when($maxPrice, fn (QueryBuilder $query, $max) => $query->where('a.price', '<=', $max))
+                ->orderByDesc('a.created_at')
+                ->paginate($perPage);
+
+            $products = $this->formatHomeResults(collect($paginator->items()));
+
+            $payload = [
+                'products'   => $products,
+                'pagination' => [
+                    'current_page' => $paginator->currentPage(),
+                    'per_page'     => $paginator->perPage(),
+                    'total'        => $paginator->total(),
+                    'last_page'    => $paginator->lastPage(),
+                ],
+            ];
+
+            return $this->ok($payload, 'Berhasil memuat daftar produk', [
+                'filters' => [
+                    'q'               => $search,
+                    'property_status' => $propertyStatus,
+                    'city'            => $city,
+                    'city_id'         => $cityId,
+                    'min_price'       => $minPrice,
+                    'max_price'       => $maxPrice,
+                    'per_page'        => $perPage,
+                ],
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+
+            return $this->fail('Gagal memuat daftar produk', 500, 'SERVER_ERROR');
+        }
+    }
+
     public function home(Request $request)
     {
         $validated = Validator::validate($request->all(), [
@@ -232,6 +313,11 @@ class ProductController extends Controller
                     ->orderBy('g.id')
                     ->limit(1);
             }, 'foto')
+            ->selectSub(function ($sub) {
+                $sub->from('product_images as gi')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('gi.product_id', 'a.id');
+            }, 'photos_count')
             ->join('product_locations as l', 'a.id', '=', 'l.product_id')
             ->join('product_types as t', 'a.product_type_id', '=', 't.id')
             ->join('product_specifications as s', 'a.id', '=', 's.product_id')
@@ -247,9 +333,12 @@ class ProductController extends Controller
         return $items
             ->map(function ($row) {
                 $payload = (array) $row;
-                $payload['id'] = $row->product_id;
+                $payload['product_id'] = (int) $row->product_id;
+                $payload['id'] = (int) $row->product_id;
                 $payload['price'] = is_null($row->price) ? null : (float) $row->price;
-                unset($payload['product_id']);
+                if (array_key_exists('foto', $payload)) {
+                    $payload['featured_image_url'] = $payload['foto'];
+                }
 
                 return $payload;
             })
