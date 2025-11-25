@@ -9,6 +9,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Throwable;
 
@@ -90,7 +91,7 @@ class ProductController extends Controller
                     if (!array_key_exists($pid, $imagesByProductId)) {
                         $imagesByProductId[$pid] = [];
                     }
-                    $imagesByProductId[$pid][] = url($image->url);
+                    $imagesByProductId[$pid][] = $this->publicUrl($image->url);
                 }
             }
 
@@ -107,7 +108,7 @@ class ProductController extends Controller
                     if (is_array($urls) && !empty($urls)) {
                         $payload['featured_image_url'] = array_values($urls);
                     } elseif (array_key_exists('foto', $payload) && !empty($payload['foto'])) {
-                        $payload['featured_image_url'] = [url($payload['foto'])];
+                        $payload['featured_image_url'] = [$this->publicUrl($payload['foto'])];
                     } else {
                         $payload['featured_image_url'] = [];
                     }
@@ -272,7 +273,7 @@ class ProductController extends Controller
             'link'               => $product->link,
             'order'              => $product->order,
             'status'             => $product->status,
-            'image_location'     => $product->image_location ? url($product->image_location) : null,
+            'image_location'     => $this->publicUrl($product->image_location),
             'youtube'            => $product->youtube,
             'hero_title'         => $product->hero_title,
             'hero_list'          => $this->formatArray($product->hero_list),
@@ -299,7 +300,7 @@ class ProductController extends Controller
                 'meta_description' => $product->productType->meta_description,
                 'color'       => $product->productType->color,
                 'position'    => $product->productType->position,
-                'image'       => $product->productType->image ? url($product->productType->image) : null,
+                'image'       => $this->publicUrl($product->productType->image),
             ] : null,
             'place'              => $place ? [
                 'id'         => $place->id,
@@ -307,9 +308,9 @@ class ProductController extends Controller
                 'name'       => $place->name,
                 'slug'       => $place->slug,
                 'featured'   => (bool) $place->featured,
-                'image'      => $place->image ? url($place->image) : null,
-                'icon'       => $place->icon ? url($place->icon) : null,
-                'hero'       => $place->hero ? url($place->hero) : null,
+                'image'      => $this->publicUrl($place->image),
+                'icon'       => $this->publicUrl($place->icon),
+                'hero'       => $this->publicUrl($place->hero),
                 'price'      => is_null($place->price) ? null : (float) $place->price,
                 'price_text' => $place->price_text,
                 'order'      => $place->order,
@@ -322,7 +323,7 @@ class ProductController extends Controller
                 'name'    => $city->name,
                 'state'   => $city->state,
                 'country' => $city->country,
-                'image'   => $city->image ? url($city->image) : null,
+                'image'   => $this->publicUrl($city->image),
             ] : null,
             'specifications'     => $this->formatSpecifications($product->specifications),
             'images'             => $this->formatImages($product->images),
@@ -384,7 +385,7 @@ class ProductController extends Controller
                 $payload['id']         = (int) $row->product_id;
                 $payload['price']      = is_null($row->price) ? null : (float) $row->price;
                 if (array_key_exists('foto', $payload) && !empty($payload['foto'])) {
-                    $payload['featured_image_url'] = url($payload['foto']);
+                    $payload['featured_image_url'] = $this->publicUrl($payload['foto']);
                 }
 
                 return $payload;
@@ -416,7 +417,7 @@ class ProductController extends Controller
             ->map(function ($image) {
                 return [
                     'id'         => $image->id,
-                    'url'        => url($image->url),
+                    'url'        => $this->publicUrl($image->url),
                     'featured'   => (bool) $image->featured,
                     'created_at' => optional($image->created_at)?->toDateTimeString(),
                     'updated_at' => optional($image->updated_at)?->toDateTimeString(),
@@ -432,7 +433,7 @@ class ProductController extends Controller
             ->map(function ($layout) {
                 return [
                     'id'          => $layout->id,
-                    'image'       => $layout->image ? url($layout->image) : null,
+                    'image'       => $this->publicUrl($layout->image),
                     'description' => $layout->description,
                     'created_at'  => optional($layout->created_at)?->toDateTimeString(),
                     'updated_at'  => optional($layout->updated_at)?->toDateTimeString(),
@@ -440,6 +441,17 @@ class ProductController extends Controller
             })
             ->values()
             ->all();
+    }
+
+    private function publicUrl(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        $path = ltrim($path, '/');
+
+        return asset('storage/' . $path);
     }
 
     private function formatLocations(Collection $locations): array
