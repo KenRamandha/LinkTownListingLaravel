@@ -95,18 +95,13 @@ class ProductController extends Controller
         try {
             $defaultProductTypeIds = array_merge(self::PROPERTY_PRODUCT_TYPE_IDS, self::LISTING_PRODUCT_TYPE_IDS);
 
-            // Jika tidak ada filter tipe dikirim dari client, gunakan default semua tipe yang
-            // memang ditampilkan di halaman pencarian.
             if (empty($productTypeIds)) {
                 $productTypeIds = $defaultProductTypeIds;
             } else {
-                // Hanya izinkan tipe yang memang termasuk dalam daftar tipe yang
-                // ditampilkan pada halaman pencarian.
                 $productTypeIds = array_values(array_intersect($productTypeIds, $defaultProductTypeIds));
 
-                // Jika setelah diintersect kosong, paksa ke array kosong agar tidak ada hasil.
                 if (empty($productTypeIds)) {
-                    $productTypeIds = [-1]; // id dummy yang tidak mungkin ada
+                    $productTypeIds = [-1];
                 }
             }
 
@@ -119,17 +114,16 @@ class ProductController extends Controller
                         $inner
                             ->where('a.title', 'like', $like)
                             ->orWhere('a.hero_subtitle', 'like', $like)
-                            ->orWhere('ad1.name', 'like', $like) // place_name
+                            ->orWhere('ad1.name', 'like', $like)
                             ->orWhere('l.address', 'like', $like)
-                            ->orWhere('ad2.name', 'like', $like) // city_name
-                            ->orWhere('ad2.state', 'like', $like); // city_state
+                            ->orWhere('ad2.name', 'like', $like)
+                            ->orWhere('ad2.state', 'like', $like);
                     });
                 })
                 ->when(!empty($propertyStatuses), fn(QueryBuilder $query) => $query->whereIn('a.property_status', $propertyStatuses))
                 ->when($minPrice, fn(QueryBuilder $query, $min) => $query->where('a.price', '>=', $min))
                 ->when($maxPrice, fn(QueryBuilder $query, $max) => $query->where('a.price', '<=', $max));
 
-            // Urutan hasil berdasarkan parameter `sort`
             switch ($sort) {
                 case 'price_asc':
                     $query->orderBy('a.price', 'asc')->orderByDesc('a.created_at');
@@ -313,7 +307,6 @@ class ProductController extends Controller
                 'product_types'     => $productTypes,
                 'price_range'       => $priceRange,
                 'cities'            => $cities,
-                // `places` bisa digunakan sebagai daftar Branch Office
                 'places'            => $places,
             ];
 
