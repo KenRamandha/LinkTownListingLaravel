@@ -27,6 +27,7 @@ Route::middleware('optional.auth')->group(function () {
     Route::get('/home', [HomeController::class, 'index']);
     Route::get('/menus/{key}', [MenuController::class, 'showPublicAware']);
     Route::get('/products/home', [ProductController::class, 'home']);
+    Route::get('/products/search/filters', [ProductController::class, 'searchFilters']);
     Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
     Route::get('/cities/{cityId}/products/top', [ProductController::class, 'topByCity'])->whereNumber('cityId');
     Route::get('/products/{productId}', [ProductController::class, 'show'])->whereNumber('productId');

@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Products;
 
 use App\Http\Controllers\Controller;
 use App\Models\Products\Product;
+use App\Models\Products\ProductType;
+use App\Models\Products\City;
+use App\Models\Products\Place;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
@@ -21,29 +24,94 @@ class ProductController extends Controller
     public function search(Request $request)
     {
         $validated = Validator::validate($request->all(), [
-            'q'               => ['nullable', 'string'],
-            'property_status' => ['nullable', 'string'],
-            'city'            => ['nullable', 'string'],
-            'city_id'         => ['nullable', 'integer'],
-            'min_price'       => ['nullable', 'numeric', 'min:0'],
-            'max_price'       => ['nullable', 'numeric', 'min:0'],
-            'page'            => ['nullable', 'integer', 'min:1'],
-            'per_page'        => ['nullable', 'integer', 'min:1', 'max:50'],
+            'q'                 => ['nullable', 'string'],
+            'property_statuses' => ['nullable', 'array'],
+            'property_statuses.*' => ['string'],
+            'city_ids'          => ['nullable', 'array'],
+            'city_ids.*'        => ['integer'],
+            'min_price'         => ['nullable', 'numeric', 'min:0'],
+            'max_price'         => ['nullable', 'numeric', 'min:0'],
+            'page'              => ['nullable', 'integer', 'min:1'],
+            'per_page'          => ['nullable', 'integer', 'min:1', 'max:50'],
+            'product_type_id'   => ['nullable', 'integer'],
+            'product_type_ids'  => ['nullable', 'array'],
+            'product_type_ids.*'=> ['integer'],
+            'place_id'          => ['nullable', 'integer'],
+            'place_ids'         => ['nullable', 'array'],
+            'place_ids.*'       => ['integer'],
+            'sort'              => ['nullable', 'string', 'in:relevance,newest,oldest,price_asc,price_desc'],
         ]);
 
-        $search         = $validated['q'] ?? null;
-        $propertyStatus = $validated['property_status'] ?? null;
-        $cityId         = $validated['city_id'] ?? null;
-        $city           = $validated['city'] ?? null;
-        $minPrice       = $validated['min_price'] ?? null;
-        $maxPrice       = $validated['max_price'] ?? null;
-        $perPage        = (int) ($validated['per_page'] ?? 12);
+        $search   = $validated['q'] ?? null;
+        $minPrice = $validated['min_price'] ?? null;
+        $maxPrice = $validated['max_price'] ?? null;
+        $perPage  = (int) ($validated['per_page'] ?? 12);
+
+        $sort = $validated['sort'] ?? 'relevance';
+
+        $propertyStatuses = [];
+        if (!empty($validated['property_statuses']) && is_array($validated['property_statuses'])) {
+            foreach ($validated['property_statuses'] as $status) {
+                if (!is_null($status) && $status !== '') {
+                    $propertyStatuses[] = (string) $status;
+                }
+            }
+        }
+        $propertyStatuses = array_values(array_unique($propertyStatuses));
+
+        $cityIds = [];
+        if (!empty($validated['city_ids']) && is_array($validated['city_ids'])) {
+            foreach ($validated['city_ids'] as $id) {
+                if (!is_null($id) && $id !== '') {
+                    $cityIds[] = (int) $id;
+                }
+            }
+        }
+        $cityIds = array_values(array_unique($cityIds));
+
+        $productTypeIds = [];
+        if (array_key_exists('product_type_id', $validated) && !is_null($validated['product_type_id'])) {
+            $productTypeIds[] = (int) $validated['product_type_id'];
+        }
+        if (!empty($validated['product_type_ids']) && is_array($validated['product_type_ids'])) {
+            foreach ($validated['product_type_ids'] as $id) {
+                $productTypeIds[] = (int) $id;
+            }
+        }
+
+        $placeIds = [];
+        if (array_key_exists('place_id', $validated) && !is_null($validated['place_id'])) {
+            $placeIds[] = (int) $validated['place_id'];
+        }
+        if (!empty($validated['place_ids']) && is_array($validated['place_ids'])) {
+            foreach ($validated['place_ids'] as $id) {
+                $placeIds[] = (int) $id;
+            }
+        }
+
+        $productTypeIds = array_values(array_unique(array_filter($productTypeIds)));
+        $placeIds       = array_values(array_unique(array_filter($placeIds)));
 
         try {
-            $productTypeIds = array_merge(self::PROPERTY_PRODUCT_TYPE_IDS, self::LISTING_PRODUCT_TYPE_IDS);
+            $defaultProductTypeIds = array_merge(self::PROPERTY_PRODUCT_TYPE_IDS, self::LISTING_PRODUCT_TYPE_IDS);
+
+            // Jika tidak ada filter tipe dikirim dari client, gunakan default semua tipe yang
+            // memang ditampilkan di halaman pencarian.
+            if (empty($productTypeIds)) {
+                $productTypeIds = $defaultProductTypeIds;
+            } else {
+                // Hanya izinkan tipe yang memang termasuk dalam daftar tipe yang
+                // ditampilkan pada halaman pencarian.
+                $productTypeIds = array_values(array_intersect($productTypeIds, $defaultProductTypeIds));
+
+                // Jika setelah diintersect kosong, paksa ke array kosong agar tidak ada hasil.
+                if (empty($productTypeIds)) {
+                    $productTypeIds = [-1]; // id dummy yang tidak mungkin ada
+                }
+            }
 
             /** @var \Illuminate\Contracts\Pagination\LengthAwarePaginator $paginator */
-            $paginator = $this->homeBaseQuery($propertyStatus, $cityId, $productTypeIds)
+            $query = $this->homeBaseQuery(null, null, $productTypeIds, $placeIds, $cityIds)
                 ->when($search, function (QueryBuilder $query, string $keyword) {
                     $like = '%' . $keyword . '%';
 
@@ -57,17 +125,29 @@ class ProductController extends Controller
                             ->orWhere('ad2.state', 'like', $like); // city_state
                     });
                 })
-                ->when($city, function (QueryBuilder $query, string $cityValue) {
-                    $query->where(function (QueryBuilder $inner) use ($cityValue) {
-                        $inner
-                            ->where('ad2.slug', $cityValue)
-                            ->orWhere('ad2.name', 'like', '%' . $cityValue . '%');
-                    });
-                })
+                ->when(!empty($propertyStatuses), fn(QueryBuilder $query) => $query->whereIn('a.property_status', $propertyStatuses))
                 ->when($minPrice, fn(QueryBuilder $query, $min) => $query->where('a.price', '>=', $min))
-                ->when($maxPrice, fn(QueryBuilder $query, $max) => $query->where('a.price', '<=', $max))
-                ->orderByDesc('a.created_at')
-                ->paginate($perPage);
+                ->when($maxPrice, fn(QueryBuilder $query, $max) => $query->where('a.price', '<=', $max));
+
+            // Urutan hasil berdasarkan parameter `sort`
+            switch ($sort) {
+                case 'price_asc':
+                    $query->orderBy('a.price', 'asc')->orderByDesc('a.created_at');
+                    break;
+                case 'price_desc':
+                    $query->orderBy('a.price', 'desc')->orderByDesc('a.created_at');
+                    break;
+                case 'oldest':
+                    $query->orderBy('a.created_at', 'asc');
+                    break;
+                case 'newest':
+                case 'relevance':
+                default:
+                    $query->orderByDesc('a.created_at');
+                    break;
+            }
+
+            $paginator = $query->paginate($perPage);
 
             $items = collect($paginator->items());
             $productIds = $items
@@ -130,19 +210,118 @@ class ProductController extends Controller
 
             return $this->ok($payload, 'Berhasil memuat daftar produk', [
                 'filters' => [
-                    'q'               => $search,
-                    'property_status' => $propertyStatus,
-                    'city'            => $city,
-                    'city_id'         => $cityId,
-                    'min_price'       => $minPrice,
-                    'max_price'       => $maxPrice,
-                    'per_page'        => $perPage,
+                    'q'                => $search,
+                    'property_statuses'=> $propertyStatuses,
+                    'city_ids'         => $cityIds,
+                    'min_price'        => $minPrice,
+                    'max_price'        => $maxPrice,
+                    'per_page'         => $perPage,
+                    'sort'             => $sort,
+                    'product_type_ids' => $productTypeIds,
+                    'place_ids'        => $placeIds,
                 ],
             ]);
         } catch (Throwable $e) {
             report($e);
 
             return $this->fail('Gagal memuat daftar produk', 500, 'SERVER_ERROR');
+        }
+    }
+
+    public function searchFilters()
+    {
+        try {
+            $allProductTypeIds = array_merge(self::PROPERTY_PRODUCT_TYPE_IDS, self::LISTING_PRODUCT_TYPE_IDS);
+
+            $productTypes = ProductType::query()
+                ->whereIn('id', $allProductTypeIds)
+                ->orderBy('position')
+                ->orderBy('name')
+                ->get(['id', 'name', 'slug', 'title', 'color'])
+                ->map(function (ProductType $type) {
+                    return [
+                        'id'    => $type->id,
+                        'name'  => $type->name,
+                        'slug'  => $type->slug,
+                        'title' => $type->title,
+                        'color' => $type->color,
+                    ];
+                })
+                ->values()
+                ->all();
+
+            $propertyStatuses = Product::query()
+                ->published()
+                ->whereIn('product_type_id', $allProductTypeIds)
+                ->whereNotNull('property_status')
+                ->select('property_status')
+                ->distinct()
+                ->orderBy('property_status')
+                ->pluck('property_status')
+                ->values()
+                ->all();
+
+            $priceAggregate = Product::query()
+                ->published()
+                ->whereIn('product_type_id', $allProductTypeIds)
+                ->selectRaw('MIN(price) as min_price, MAX(price) as max_price')
+                ->first();
+
+            $priceRange = [
+                'min' => $priceAggregate && $priceAggregate->min_price !== null
+                    ? (float) $priceAggregate->min_price
+                    : null,
+                'max' => $priceAggregate && $priceAggregate->max_price !== null
+                    ? (float) $priceAggregate->max_price
+                    : null,
+            ];
+
+            $cities = City::query()
+                ->orderBy('name')
+                ->get(['id', 'slug', 'name', 'state'])
+                ->map(function (City $city) {
+                    return [
+                        'id'    => $city->id,
+                        'slug'  => $city->slug,
+                        'name'  => $city->name,
+                        'state' => $city->state,
+                    ];
+                })
+                ->values()
+                ->all();
+
+            $places = Place::query()
+                ->with('city:id,name')
+                ->orderBy('order')
+                ->orderBy('name')
+                ->get(['id', 'city_id', 'name', 'slug', 'order'])
+                ->map(function (Place $place) {
+                    return [
+                        'id'        => $place->id,
+                        'city_id'   => $place->city_id,
+                        'city_name' => $place->city?->name,
+                        'name'      => $place->name,
+                        'slug'      => $place->slug,
+                        'order'     => $place->order,
+                    ];
+                })
+                ->values()
+                ->all();
+
+            $payload = [
+                'property_statuses' => $propertyStatuses,
+                'product_types'     => $productTypes,
+                'price_range'       => $priceRange,
+                'cities'            => $cities,
+                // `places` bisa digunakan sebagai daftar Branch Office
+                'places'            => $places,
+            ];
+
+            return $this->ok($payload, 'Berhasil memuat opsi filter pencarian produk');
+        } catch (Throwable $e) {
+            report($e);
+
+            return $this->fail('Gagal memuat opsi filter pencarian produk', 500, 'SERVER_ERROR');
         }
     }
 
@@ -332,7 +511,7 @@ class ProductController extends Controller
         ];
     }
 
-    private function homeBaseQuery(?string $propertyStatus, ?int $cityId = null, ?array $productTypeIds = null): QueryBuilder
+    private function homeBaseQuery(?string $propertyStatus, ?int $cityId = null, ?array $productTypeIds = null, ?array $placeIds = null, ?array $cityIds = null): QueryBuilder
     {
         $typeFilter = $productTypeIds ?: self::LISTING_PRODUCT_TYPE_IDS;
 
@@ -373,7 +552,9 @@ class ProductController extends Controller
             ->join('cities as ad2', 'ad1.city_id', '=', 'ad2.id')
             ->whereIn('t.id', $typeFilter)
             ->when($propertyStatus, fn(QueryBuilder $query, string $status) => $query->where('a.property_status', $status))
-            ->when($cityId, fn(QueryBuilder $query, int $id) => $query->where('ad2.id', $id));
+            ->when($cityId, fn(QueryBuilder $query, int $id) => $query->where('ad2.id', $id))
+            ->when($cityIds, fn(QueryBuilder $query, array $ids) => $query->whereIn('ad2.id', $ids))
+            ->when($placeIds, fn(QueryBuilder $query, array $ids) => $query->whereIn('ad1.id', $ids));
     }
 
     private function formatHomeResults(Collection $items): array

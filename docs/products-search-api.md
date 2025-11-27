@@ -5,13 +5,39 @@
 - **Nama route**: `products.search`
 - **Query params** (semua opsional):
   - `q` *(string)* – kata kunci pencarian bebas; digunakan untuk mencari di `title`, `hero_subtitle`, `place_name`, `address`, `city_name`, dan `city_state`.
-  - `property_status` *(string)* – filter status properti (`Jual`, `Sewa`, `Baru`, dll).
-  - `city_id` *(int)* – filter berdasarkan ID kota.
-  - `city` *(string)* – filter berdasarkan kota (slug atau nama, misalnya `bekasi`).
+  - `property_statuses[]` *(array string)* – filter beberapa status properti sekaligus (`Jual`, `Sewa`, `Baru`, dll). Jika tidak dikirim sama sekali, maka semua status akan ditampilkan.
+  - `city_ids[]` *(array int)* – filter berdasarkan beberapa ID kota sekaligus (bisa digunakan saat user memilih satu atau lebih kota di UI).
   - `min_price` *(int)* – harga minimum.
   - `max_price` *(int)* – harga maksimum.
+  - `product_type_id` *(int)* – filter satu jenis produk (mis. Rumah, Ruko, Apartment) berdasarkan ID di tabel `product_types`.
+  - `product_type_ids[]` *(array int)* – filter beberapa jenis produk sekaligus. Jika tidak dikirim, semua tipe yang diizinkan di-search (property & listing) akan ditampilkan.
+  - `place_id` *(int)* – filter satu lokasi/branch (berdasarkan ID di tabel `places` – bisa di-mapping ke “Branch Office” pada UI).
+  - `place_ids[]` *(array int)* – filter beberapa lokasi/branch sekaligus.
+  - `sort` *(enum)* – cara mengurutkan hasil:
+    - `relevance` *(default)* – diurutkan berdasarkan produk terbaru (paling sesuai).
+    - `newest` – produk paling baru di atas.
+    - `oldest` – produk paling lama di atas.
+    - `price_asc` – harga terendah ke tertinggi (untuk opsi “Termurah”).
+    - `price_desc` – harga tertinggi ke terendah (untuk opsi “Termahal”).
   - `page` *(int, default 1)* – nomor halaman.
   - `per_page` *(int, 1-50, default 12)* – jumlah item per halaman.
+
+## 6. GET `/products/search/filters`
+
+- **Tujuan**: Mendapatkan daftar opsi filter yang digunakan untuk bottom sheet filter di layar pencarian/list produk.
+- **Path**: `GET /api/products/search/filters`
+- **Query params**: tidak ada.
+- **Struktur Respons (`data`)**:
+  - `property_statuses` *(array string)* – daftar status properti yang tersedia (`Jual`, `Sewa`, dll).
+  - `product_types` *(array object)* – daftar tipe produk yang dapat difilter:
+    - `id`, `name`, `slug`, `title`, `color`.
+  - `price_range` *(object)* – range harga global dari produk yang dipublikasikan:
+    - `min` *(number|null)* – harga terendah (atau `null` jika belum ada).
+    - `max` *(number|null)* – harga tertinggi (atau `null` jika belum ada).
+  - `cities` *(array object)* – daftar kota untuk section “Lokasi”:
+    - `id`, `slug`, `name`, `state`.
+  - `places` *(array object)* – daftar tempat/branch (bisa dipakai untuk section “Branch Office”):
+    - `id`, `city_id`, `city_name`, `name`, `slug`, `order`.
 
 ## Struktur Item Produk
 
@@ -38,7 +64,7 @@ Setiap item di `data.products` memiliki struktur yang mirip dengan item pada end
 ## Contoh Request
 
 ```http
-GET /api/products/search?q=summarecon&property_status=Jual&city=bekasi&min_price=500000000&max_price=3000000000&page=1&per_page=12
+GET /api/products/search?q=summarecon&property_statuses[]=Jual&min_price=500000000&max_price=3000000000&page=1&per_page=12
 Accept: application/json
 ```
 
@@ -90,9 +116,8 @@ Accept: application/json
   "meta": {
     "filters": {
       "q": "summarecon",
-      "property_status": "Jual",
-      "city": "bekasi",
-      "city_id": null,
+      "property_statuses": ["Jual"],
+      "city_ids": null,
       "min_price": 500000000,
       "max_price": 3000000000,
       "per_page": 12
