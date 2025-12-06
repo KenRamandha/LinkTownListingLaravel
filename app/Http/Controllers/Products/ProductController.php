@@ -35,7 +35,7 @@ class ProductController extends Controller
             'per_page'          => ['nullable', 'integer', 'min:1', 'max:50'],
             'product_type_id'   => ['nullable', 'integer'],
             'product_type_ids'  => ['nullable', 'array'],
-            'product_type_ids.*'=> ['integer'],
+            'product_type_ids.*' => ['integer'],
             'place_id'          => ['nullable', 'integer'],
             'place_ids'         => ['nullable', 'array'],
             'place_ids.*'       => ['integer'],
@@ -205,7 +205,7 @@ class ProductController extends Controller
             return $this->ok($payload, 'Berhasil memuat daftar produk', [
                 'filters' => [
                     'q'                => $search,
-                    'property_statuses'=> $propertyStatuses,
+                    'property_statuses' => $propertyStatuses,
                     'city_ids'         => $cityIds,
                     'min_price'        => $minPrice,
                     'max_price'        => $maxPrice,
@@ -328,8 +328,13 @@ class ProductController extends Controller
         $limit = (int) ($validated['limit'] ?? 5);
         $propertyStatus = $validated['property_status'] ?? null;
 
+        $propertyStatuses = null;
+        if (is_null($propertyStatus) || $propertyStatus === '') {
+            $propertyStatuses = ['jual', 'sewa', 'baru'];
+        }
+
         try {
-            $payload = $this->buildHomePayload($propertyStatus, $limit);
+            $payload = $this->buildHomePayload($propertyStatus, $limit, null, $propertyStatuses);
 
             return $this->ok($payload, 'Berhasil memuat produk home', [
                 'filters' => [
@@ -403,13 +408,15 @@ class ProductController extends Controller
         }
     }
 
-    private function buildHomePayload(?string $propertyStatus, int $limit, ?int $cityId = null): array
+    private function buildHomePayload(?string $propertyStatus, int $limit, ?int $cityId = null, ?array $propertyStatuses = null): array
     {
-        $latestProperties = $this->homeBaseQuery($propertyStatus, $cityId, self::PROPERTY_PRODUCT_TYPE_IDS)
+        $latestProperties = $this->homeBaseQuery($propertyStatus, $cityId, self::PROPERTY_PRODUCT_TYPE_IDS, null, null, $propertyStatuses)
+            ->orderByDesc('a.id')
             ->limit($limit)
             ->get();
 
-        $latestListings = $this->homeBaseQuery($propertyStatus, $cityId, self::LISTING_PRODUCT_TYPE_IDS)
+        $latestListings = $this->homeBaseQuery($propertyStatus, $cityId, self::LISTING_PRODUCT_TYPE_IDS, null, null, $propertyStatuses)
+            ->orderByDesc('a.id')
             ->limit($limit)
             ->get();
 
@@ -504,11 +511,17 @@ class ProductController extends Controller
         ];
     }
 
-    private function homeBaseQuery(?string $propertyStatus, ?int $cityId = null, ?array $productTypeIds = null, ?array $placeIds = null, ?array $cityIds = null): QueryBuilder
-    {
+    private function homeBaseQuery(
+        ?string $propertyStatus,
+        ?int $cityId = null,
+        ?array $productTypeIds = null,
+        ?array $placeIds = null,
+        ?array $cityIds = null,
+        ?array $propertyStatuses = null
+    ): QueryBuilder {
         $typeFilter = $productTypeIds ?: self::LISTING_PRODUCT_TYPE_IDS;
 
-        return DB::table('products as a')
+        $query = DB::table('products as a')
             ->select([
                 'a.id as product_id',
                 'a.price',
@@ -544,10 +557,17 @@ class ProductController extends Controller
             ->join('places as ad1', 'ad1.id', '=', 'l.place_id')
             ->join('cities as ad2', 'ad1.city_id', '=', 'ad2.id')
             ->whereIn('t.id', $typeFilter)
-            ->when($propertyStatus, fn(QueryBuilder $query, string $status) => $query->where('a.property_status', $status))
             ->when($cityId, fn(QueryBuilder $query, int $id) => $query->where('ad2.id', $id))
             ->when($cityIds, fn(QueryBuilder $query, array $ids) => $query->whereIn('ad2.id', $ids))
             ->when($placeIds, fn(QueryBuilder $query, array $ids) => $query->whereIn('ad1.id', $ids));
+
+        if (is_array($propertyStatuses) && !empty($propertyStatuses)) {
+            $query->whereIn('a.property_status', $propertyStatuses);
+        } elseif (!is_null($propertyStatus) && $propertyStatus !== '') {
+            $query->where('a.property_status', $propertyStatus);
+        }
+
+        return $query;
     }
 
     private function formatHomeResults(Collection $items): array
