@@ -113,6 +113,7 @@ class ProductController extends Controller
                     $query->where(function (QueryBuilder $inner) use ($like) {
                         $inner
                             ->where('a.title', 'like', $like)
+                            ->orWhere('a.description', 'like', $like)
                             ->orWhere('a.hero_subtitle', 'like', $like)
                             ->orWhere('ad1.name', 'like', $like)
                             ->orWhere('l.address', 'like', $like)
@@ -244,6 +245,16 @@ class ProductController extends Controller
                 ->values()
                 ->all();
 
+            $productTypeSlugs = collect($productTypes)
+                ->pluck('slug')
+                ->filter()
+                ->unique()
+                ->values()
+                ->map(function ($slug) {
+                    return ['slug' => $slug];
+                })
+                ->all();
+
             $propertyStatuses = Product::query()
                 ->published()
                 ->whereIn('product_type_id', $allProductTypeIds)
@@ -270,7 +281,25 @@ class ProductController extends Controller
                     : null,
             ];
 
-            $cities = City::query()
+            $payload = [
+                'property_statuses' => $propertyStatuses,
+                'product_types'     => $productTypeSlugs,
+                'product_names'     => $productTypes,
+                'price_range'       => $priceRange
+            ];
+
+            return $this->ok($payload, 'Berhasil memuat opsi filter pencarian produk');
+        } catch (Throwable $e) {
+            report($e);
+
+            return $this->fail('Gagal memuat opsi filter pencarian produk', 500, 'SERVER_ERROR');
+        }
+    }
+
+    public function provinces()
+    {
+        try {
+            $provinces = City::query()
                 ->orderBy('name')
                 ->get(['id', 'slug', 'name', 'state'])
                 ->map(function (City $city) {
@@ -284,16 +313,32 @@ class ProductController extends Controller
                 ->values()
                 ->all();
 
-            $places = Place::query()
+            $payload = [
+                'provinces' => $provinces,
+            ];
+
+            return $this->ok($payload, 'Berhasil memuat daftar provinsi');
+        } catch (Throwable $e) {
+            report($e);
+
+            return $this->fail('Gagal memuat daftar provinsi', 500, 'SERVER_ERROR');
+        }
+    }
+
+    public function citiesByProvince(int $provinceId)
+    {
+        try {
+            $cities = Place::query()
                 ->with('city:id,name')
+                ->where('city_id', $provinceId)
                 ->orderBy('order')
                 ->orderBy('name')
                 ->get(['id', 'city_id', 'name', 'slug', 'order'])
                 ->map(function (Place $place) {
                     return [
                         'id'        => $place->id,
-                        'city_id'   => $place->city_id,
-                        'city_name' => $place->city?->name,
+                        'province_id' => $place->city_id,
+                        'province_name' => $place->city?->name,
                         'name'      => $place->name,
                         'slug'      => $place->slug,
                         'order'     => $place->order,
@@ -303,18 +348,15 @@ class ProductController extends Controller
                 ->all();
 
             $payload = [
-                'property_statuses' => $propertyStatuses,
-                'product_types'     => $productTypes,
-                'price_range'       => $priceRange,
-                'cities'            => $cities,
-                'places'            => $places,
+                'province_id' => $provinceId,
+                'cities'      => $cities,
             ];
 
-            return $this->ok($payload, 'Berhasil memuat opsi filter pencarian produk');
+            return $this->ok($payload, 'Berhasil memuat daftar kota');
         } catch (Throwable $e) {
             report($e);
 
-            return $this->fail('Gagal memuat opsi filter pencarian produk', 500, 'SERVER_ERROR');
+            return $this->fail('Gagal memuat daftar kota', 500, 'SERVER_ERROR');
         }
     }
 
