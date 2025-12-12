@@ -172,7 +172,7 @@ class ProductController extends Controller
 
             $products = $items
                 ->map(function ($row) use ($imagesByProductId) {
-                    $payload = (array) $row;
+                    $payload   = (array) $row;
                     $productId = (int) $row->product_id;
 
                     $payload['product_id'] = $productId;
@@ -187,6 +187,8 @@ class ProductController extends Controller
                     } else {
                         $payload['featured_image_url'] = [];
                     }
+
+                    $payload = $this->normalizeSpecificationsPayload($payload);
 
                     return $payload;
                 })
@@ -617,17 +619,36 @@ class ProductController extends Controller
         return $items
             ->map(function ($row) {
                 $payload = (array) $row;
+
                 $payload['product_id'] = (int) $row->product_id;
                 $payload['id']         = (int) $row->product_id;
                 $payload['price']      = is_null($row->price) ? null : (float) $row->price;
+
                 if (array_key_exists('foto', $payload) && !empty($payload['foto'])) {
                     $payload['featured_image_url'] = $this->publicUrl($payload['foto']);
                 }
 
-                return $payload;
+                return $this->normalizeSpecificationsPayload($payload);
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * Normalisasi field spesifikasi untuk response listing (home, search, topByCity).
+     *
+     * - Decode `specification_value` (jika string JSON) menjadi array `specifications`.
+     * - Hilangkan `specification_value` dari payload agar FE cukup pakai `specifications`.
+     */
+    private function normalizeSpecificationsPayload(array $payload): array
+    {
+        if (array_key_exists('specification_value', $payload) && $payload['specification_value'] !== null) {
+            $payload['specifications'] = $this->decodeSpecificationValue($payload['specification_value']);
+        }
+
+        unset($payload['specification_value']);
+
+        return $payload;
     }
 
     private function formatSpecifications(Collection $specifications): array
@@ -635,13 +656,7 @@ class ProductController extends Controller
         return $specifications
             ->sortBy('id')
             ->flatMap(function ($specification) {
-                $value = $specification->value ?? [];
-
-                if (!is_array($value)) {
-                    return [$value];
-                }
-
-                return array_values($value);
+                return $this->decodeSpecificationValue($specification->value ?? null);
             })
             ->values()
             ->all();
@@ -713,6 +728,51 @@ class ProductController extends Controller
     {
         if (is_array($value)) {
             return array_values($value);
+        }
+
+        if (is_null($value)) {
+            return [];
+        }
+
+        return [$value];
+    }
+
+    /**
+     * Decode nilai spesifikasi dari berbagai bentuk menjadi array seragam.
+     *
+     * - Jika sudah array      -> kembalikan array_values.
+     * - Jika string JSON      -> decode (termasuk kasus double-encoded), dan jika hasilnya array, kembalikan array_values.
+     * - Jika string biasa/null/tipe lain -> bungkus dalam array satu elemen.
+     */
+    private function decodeSpecificationValue($value): array
+    {
+        if (is_array($value)) {
+            return array_values($value);
+        }
+
+        if (is_string($value)) {
+            $current = $value;
+
+            // Coba decode maksimal dua kali untuk menangani kasus double-encoded.
+            for ($i = 0; $i < 2; $i++) {
+                $decoded = json_decode($current, true);
+
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    break;
+                }
+
+                if (is_array($decoded)) {
+                    return array_values($decoded);
+                }
+
+                if (!is_string($decoded)) {
+                    break;
+                }
+
+                $current = $decoded;
+            }
+
+            return [$value];
         }
 
         if (is_null($value)) {
