@@ -4,6 +4,7 @@ namespace App\Models\UserProduct;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class MsProduct extends Model
 {
@@ -112,6 +113,14 @@ class MsProduct extends Model
     }
 
     /**
+     * Relationship for main image (Eager Loadable)
+     */
+    public function mainImageRelation()
+    {
+        return $this->hasOne(MsProductImage::class, 'product_id', 'product_id')->where('main', 1);
+    }
+
+    /**
      * Get the locations for this product
      */
     public function locations(): HasMany
@@ -143,5 +152,32 @@ class MsProduct extends Model
         
         $decoded = json_decode($this->facility, true);
         return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * Get updated listing type detail
+     */
+    public function listingTypeDetail(): HasOne
+    {
+        return $this->hasOne(MsProductDetail::class, 'detail_id', 'listing_type')
+                    ->where('detail_type', 'LISTING_TYPE');
+    }
+
+    /**
+     * Get updated product type detail
+     */
+    public function productTypeDetail(): HasOne
+    {
+        return $this->hasOne(MsProductDetail::class, 'detail_id', 'product_type')
+                    ->where('detail_type', 'PROPERTY_TYPE');
+    }
+
+    /**
+     * Get updated condition detail
+     */
+    public function conditionDetail(): HasOne
+    {
+        return $this->hasOne(MsProductDetail::class, 'detail_id', 'condition')
+                    ->where('detail_type', 'CONDITION');
     }
 }

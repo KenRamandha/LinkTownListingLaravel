@@ -220,6 +220,86 @@ class UserProductController extends Controller
     }
 
     /**
+     * Get list of user products
+     * GET /api/user_product?status={Draft|Publish}
+     */
+    /**
+     * Get list of user products
+     * GET /api/user_product?status={Draft|Publish}&q={keyword}&per_page={limit}
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $status = $request->query('status');
+        $q = $request->query('q');
+        $perPage = (int) $request->query('per_page', 12);
+
+        $query = MsProduct::where('created_by', $user->id) 
+            ->with(['mainImageRelation', 'locations', 'listingTypeDetail', 'productTypeDetail', 'conditionDetail']);
+
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        if ($q) {
+            $query->where(function($query) use ($q) {
+                $query->where('title', 'like', "%{$q}%")
+                      ->orWhere('description', 'like', "%{$q}%");
+            });
+        }
+
+        $paginator = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+        $products = collect($paginator->items())->map(function ($product) {
+            // Eager loaded relation
+            $mainImage = $product->mainImageRelation;
+            $location = $product->locations->first();
+            
+            return [
+                'product_id' => $product->product_id,
+                'title' => $product->title,
+                'selling_price' => $product->selling_price,
+                'rental_price' => $product->rental_price,
+                
+                'listing_type' => $product->listing_type,
+                'listing_type_description' => $product->listingTypeDetail?->description,
+                
+                'status' => $product->status,
+                'created_at' => $product->created_at,
+                'main_image' => $mainImage ? url($mainImage->url) : null,
+                'location' => $location ? [
+                    'latitude' => $location->latitude,
+                    'longitude' => $location->longitude,
+                ] : null,
+                
+                'product_type' => $product->product_type,
+                'product_type_description' => $product->productTypeDetail?->description,
+                
+                'condition' => $product->condition,
+                'condition_description' => $product->conditionDetail?->description,
+            ];
+        });
+
+        $payload = [
+            'products' => $products,
+            'pagination' => [
+                'current_page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
+            ],
+        ];
+
+        return $this->ok($payload, 'Berhasil memuat daftar produk', [
+            'filters' => [
+                'status' => $status,
+                'q' => $q,
+                'per_page' => $perPage,
+            ],
+        ]);
+    }
+
+    /**
      * Store a new product (Draft or Publish)
      * POST /api/user_product
      * Content-Type: multipart/form-data
