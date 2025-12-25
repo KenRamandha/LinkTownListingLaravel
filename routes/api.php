@@ -23,6 +23,10 @@ use App\Http\Controllers\Audit\AuditLogsController;
 use App\Http\Controllers\Products\ProductController;
 use App\Http\Controllers\Visits\VisitController;
 
+use App\Http\Controllers\UserProduct\UserProductController;
+use App\Http\Controllers\UserProduct\MasterController;
+use App\Http\Controllers\UserProduct\LocationController;
+
 Route::middleware('optional.auth')->group(function () {
     Route::get('/home', [HomeController::class, 'index']);
     Route::get('/menus/{key}', [MenuController::class, 'showPublicAware']);
@@ -33,6 +37,14 @@ Route::middleware('optional.auth')->group(function () {
     Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
     Route::get('/cities/{cityId}/products/top', [ProductController::class, 'topByCity'])->whereNumber('cityId');
     Route::get('/products/{productId}', [ProductController::class, 'show'])->whereNumber('productId');
+
+    // Master data endpoints
+    Route::get('/master/product-details', [MasterController::class, 'productDetails']);
+
+    // Location endpoints
+    Route::get('/locations/provinces', [LocationController::class, 'provinces']);
+    Route::get('/locations/cities', [LocationController::class, 'cities']);
+    Route::get('/locations/areas', [LocationController::class, 'areas']);
 });
 
 Route::post('/auth/login', [AuthController::class, 'login']);
@@ -44,6 +56,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/permissions', [MeController::class, 'permissions']);
     Route::get('/me/profile', [MeController::class, 'profile']);
     Route::put('/me/profile', [MeController::class, 'updateProfile']);
+
+    // User Product endpoints
+    Route::post('/user_product', [UserProductController::class, 'store']);
+    Route::get('/user_product/{product_id}', [UserProductController::class, 'show']);
+    Route::put('/user_product/{product_id}', [UserProductController::class, 'update']);
+    Route::put('/user_product/{product_id}/publish', [UserProductController::class, 'publish']);
+    Route::delete('/user_product/images/{image_id}', [UserProductController::class, 'deleteImage']);
 
     Route::post('/attendance/clock', [AttendanceController::class, 'clock']);
     Route::get('/attendance/allowed-locations', [AttendanceController::class, 'allowedLocations']);
