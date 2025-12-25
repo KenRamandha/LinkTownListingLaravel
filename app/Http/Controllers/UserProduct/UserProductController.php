@@ -266,7 +266,7 @@ class UserProductController extends Controller
                 
                 'status' => $product->status,
                 'created_at' => $product->created_at,
-                'main_image' => $mainImage ? url($mainImage->url) : null,
+                'main_image' => $this->publicUrl($mainImage?->url),
                 'location' => $location ? [
                     'latitude' => $location->latitude,
                     'longitude' => $location->longitude,
@@ -449,15 +449,15 @@ class UserProductController extends Controller
                 'rental_terms' => $product->rental_terms,
                 'status' => $product->status,
                 'images' => [
-                    'main' => $mainImage?->url,
+                    'main' => $this->publicUrl($mainImage?->url),
                     'display' => $displayImages->map(fn($img) => [
                         'id' => $img->id,
-                        'url' => $img->url,
+                        'url' => $this->publicUrl($img->url),
                         'order' => $img->order,
                     ])->values(),
                     'layout' => $layoutImages->map(fn($img) => [
                         'id' => $img->id,
-                        'url' => $img->url,
+                        'url' => $this->publicUrl($img->url),
                         'order' => $img->order,
                     ])->values(),
                 ],
@@ -708,5 +708,19 @@ class UserProductController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Convert storage path to public URL
+     */
+    private function publicUrl(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        $path = ltrim($path, '/');
+
+        return asset($path);
     }
 }
