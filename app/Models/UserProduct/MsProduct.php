@@ -180,4 +180,21 @@ class MsProduct extends Model
         return $this->hasOne(MsProductDetail::class, 'detail_id', 'condition')
                     ->where('detail_type', 'CONDITION');
     }
+
+    /**
+     * Get updated label detail
+     */
+    public function labelDetail(): HasOne
+    {
+        return $this->hasOne(MsProductDetail::class, 'detail_id', 'label')
+                    ->where('detail_type', 'LABEL');
+    }
+
+    /**
+     * Get the creator of the product (Agent/User)
+     */
+    public function creator()
+    {
+        return $this->belongsTo(\App\Models\Core\User::class, 'created_by');
+    }
 }

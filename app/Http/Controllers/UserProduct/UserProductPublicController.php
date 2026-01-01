@@ -174,6 +174,9 @@ class UserProductPublicController extends Controller
                     'listingTypeDetail',
                     'productTypeDetail',
                     'conditionDetail',
+                    'labelDetail',
+                    'creator.profile',
+                    'creator.company',
                 ])
                 ->firstOrFail();
 
@@ -537,7 +540,7 @@ class UserProductPublicController extends Controller
                 ? (is_null($product->rental_price) ? null : (float) $product->rental_price)
                 : (float) $product->selling_price,
             'cicilan_per_bulan'  => null, // MsProduct doesn't have cicilan
-            'label'              => $product->label,
+            'label'              => $product->labelDetail->description ?? $product->label,
             'label_color'        => null, // MsProduct doesn't have label_color
             'product_type_id'    => $product->product_type,
             'link'               => null, // MsProduct doesn't have link
@@ -548,15 +551,17 @@ class UserProductPublicController extends Controller
             'hero_title'         => null, // MsProduct doesn't have hero fields
             'hero_list'          => [],
             'price_header'       => [],
-            'hero_subtitle'      => null,
+            'hero_subtitle'      => $product->labelDetail->description ?? $product->label ?? '-',
             'developer_id'       => null, // MsProduct has developer name, not ID
             'tenant'             => [],
             'featured_partner'   => false,
             'project_id'         => null,
             'user_id'            => $product->created_by,
-            'property_status'    => $product->listing_type, // Map listing_type to property_status
+            'property_status'    => $product->listingTypeDetail->description ?? $product->listing_type,
             'nowa'               => $product->user_phone,
-            'namawa'             => $product->user_name,
+            'namawa'             => $product->user_name ?? 'Sales', // Fallback to 'Sales'
+            'agent_photo_url'    => $product->creator->profile->avatar_url ?? null,
+            'agency_name'        => $product->creator->company->name ?? 'Agen Independen',
             'rental_terms'       => $product->rental_terms,
             'created_at'         => optional($product->created_at)?->toDateTimeString(),
             'updated_at'         => optional($product->updated_at)?->toDateTimeString(),
