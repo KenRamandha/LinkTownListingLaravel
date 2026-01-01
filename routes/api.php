@@ -42,9 +42,9 @@ Route::middleware('optional.auth')->group(function () {
     // User Products Public API (similar to products API but using MsProduct models)
     Route::get('/user-products/home', [UserProductPublicController::class, 'home']);
     Route::get('/user-products/search/filters', [UserProductPublicController::class, 'searchFilters']);
+    Route::get('/user-products/search', [UserProductPublicController::class, 'search'])->name('user-products.search');
     Route::get('/cities/{cityId}/user-products/top', [UserProductPublicController::class, 'topByCity'])->whereNumber('cityId');
     Route::get('/user-products/{productId}', [UserProductPublicController::class, 'show']);
-    Route::get('/user-products/search', [UserProductPublicController::class, 'search'])->name('user-products.search');
 
     // Master data endpoints
     Route::get('/master/product-details', [MasterController::class, 'productDetails']);
