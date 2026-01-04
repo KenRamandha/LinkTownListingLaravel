@@ -32,6 +32,8 @@ class MsProduct extends Model
         'expired_date',
         'selling_price',
         'rental_price',
+        'commission_selling_percentage',
+        'commission_rent_percentage',
         'commission_selling_price',
         'commission_rent_price',
         'rental_terms',
@@ -50,6 +52,8 @@ class MsProduct extends Model
     protected $casts = [
         'selling_price' => 'decimal:2',
         'rental_price' => 'decimal:2',
+        'commission_selling_percentage' => 'integer',
+        'commission_rent_percentage' => 'integer',
         'commission_selling_price' => 'decimal:2',
         'commission_rent_price' => 'decimal:2',
         'agreement_date' => 'date',

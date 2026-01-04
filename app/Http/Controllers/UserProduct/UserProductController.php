@@ -37,6 +37,29 @@ class UserProductController extends Controller
     }
 
     /**
+     * Calculate commission price from base price and percentage
+     * 
+     * @param mixed $price The base price (selling_price or rental_price)
+     * @param mixed $percentage The commission percentage (0-100)
+     * @return float|null The calculated commission price
+     */
+    private function calculateCommission(mixed $price, mixed $percentage): ?float
+    {
+        if ($price === null || $percentage === null) {
+            return null;
+        }
+        
+        $priceFloat = (float) $price;
+        $percentageInt = (int) $percentage;
+        
+        if ($priceFloat <= 0 || $percentageInt < 0 || $percentageInt > 100) {
+            return null;
+        }
+        
+        return ($priceFloat * $percentageInt) / 100;
+    }
+
+    /**
      * Get validation rules for product
      */
     private function getValidationRules(bool $isUpdate = false): array
@@ -68,8 +91,8 @@ class UserProductController extends Controller
             'listing_type' => 'nullable|string|exists:tr_product_detail,detail_id,detail_type,LISTING_TYPE',
             'selling_price' => 'nullable|numeric',
             'rental_price' => 'nullable|numeric',
-            'commission_selling_price' => 'nullable|numeric',
-            'commission_rent_price' => 'nullable|numeric',
+            'commission_selling_percentage' => 'nullable|numeric|min:0|max:100',
+            'commission_rent_percentage' => 'nullable|numeric|min:0|max:100',
             'rental_terms' => 'nullable|string|max:255',
             'status' => 'nullable|in:Draft,Publish',
             // Image validation
@@ -349,8 +372,16 @@ class UserProductController extends Controller
                 'listing_type' => $request->input('listing_type'),
                 'selling_price' => $request->input('selling_price'),
                 'rental_price' => $request->input('rental_price'),
-                'commission_selling_price' => $request->input('commission_selling_price'),
-                'commission_rent_price' => $request->input('commission_rent_price'),
+                'commission_selling_percentage' => $request->input('commission_selling_percentage'),
+                'commission_rent_percentage' => $request->input('commission_rent_percentage'),
+                'commission_selling_price' => $this->calculateCommission(
+                    $request->input('selling_price'),
+                    $request->input('commission_selling_percentage')
+                ),
+                'commission_rent_price' => $this->calculateCommission(
+                    $request->input('rental_price'),
+                    $request->input('commission_rent_percentage')
+                ),
                 'rental_terms' => $request->input('rental_terms'),
                 'status' => $request->input('status', 'Draft'),
                 'created_by' => $createdBy,
@@ -444,6 +475,8 @@ class UserProductController extends Controller
                 'listing_type' => $product->listing_type,
                 'selling_price' => $product->selling_price,
                 'rental_price' => $product->rental_price,
+                'commission_selling_percentage' => $product->commission_selling_percentage,
+                'commission_rent_percentage' => $product->commission_rent_percentage,
                 'commission_selling_price' => $product->commission_selling_price,
                 'commission_rent_price' => $product->commission_rent_price,
                 'rental_terms' => $product->rental_terms,
@@ -521,8 +554,16 @@ class UserProductController extends Controller
                 'listing_type' => $request->input('listing_type', $product->listing_type),
                 'selling_price' => $request->input('selling_price', $product->selling_price),
                 'rental_price' => $request->input('rental_price', $product->rental_price),
-                'commission_selling_price' => $request->input('commission_selling_price', $product->commission_selling_price),
-                'commission_rent_price' => $request->input('commission_rent_price', $product->commission_rent_price),
+                'commission_selling_percentage' => $request->input('commission_selling_percentage', $product->commission_selling_percentage),
+                'commission_rent_percentage' => $request->input('commission_rent_percentage', $product->commission_rent_percentage),
+                'commission_selling_price' => $this->calculateCommission(
+                    $request->input('selling_price', $product->selling_price),
+                    $request->input('commission_selling_percentage', $product->commission_selling_percentage)
+                ),
+                'commission_rent_price' => $this->calculateCommission(
+                    $request->input('rental_price', $product->rental_price),
+                    $request->input('commission_rent_percentage', $product->commission_rent_percentage)
+                ),
                 'rental_terms' => $request->input('rental_terms', $product->rental_terms),
                 'status' => $request->input('status', $product->status),
                 'update_by' => $updatedBy,
