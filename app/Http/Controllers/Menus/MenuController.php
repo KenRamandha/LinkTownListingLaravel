@@ -42,6 +42,38 @@ class MenuController extends Controller
         }
     }
 
+    public function showPublicAwareCraxion(Request $r, string $key)
+    {
+        try {
+            $user = $r->user();
+            $companyId = $user->company_id ?? 'CMP-CR';
+
+            $menuData = $this->loadMenu($companyId, $key);
+
+            if (!$menuData) {
+                return $this->fail('Menu tidak ditemukan', 404, 'NOT_FOUND');
+            }
+
+            $menu = (object) $menuData['menu'];
+            $items = $menuData['items'];
+
+            $rendered = $this->renderMenuCraxion($user, $items, $menu);
+
+            return $this->ok(
+                [
+                    'id' => $rendered['menu_id'],
+                    'key' => $rendered['menu_key'],
+                    'items' => $rendered['items'],
+                ],
+                'Menu loaded',
+                ['guest' => $rendered['guest']]
+            );
+        } catch (Throwable $e) {
+            report($e);
+            return $this->fail('Gagal memuat menu', 500, 'SERVER_ERROR');
+        }
+    }
+
     private function loadMenu(string $companyId, string $key): ?array
     {
         $menuRow = DB::table('menus')
@@ -80,6 +112,75 @@ class MenuController extends Controller
     private function renderMenu($user, array $items, object $menu): array
     {
         $visibleForGuestRoot = ['Home', 'Profile'];
+        $permissions = $user ? $user->effectivePermissions() : [];
+        $allowed = $user ? array_flip($permissions) : [];
+
+        $tree = [];
+        $byId = [];
+        $homeNode = null;
+        $profileNode = null;
+
+        foreach ($items as $it) {
+            $visible = true;
+
+            $permissionKey = $it['permission_key'] ?? null;
+            if ($user) {
+                if ($permissionKey && !isset($allowed[$permissionKey])) {
+                    $visible = false;
+                }
+            } else {
+                $isRoot = ($it['parent_id'] ?? null) === null;
+                $visible = $isRoot && in_array($it['label'] ?? '', $visibleForGuestRoot, true);
+            }
+
+            if (!$visible) continue;
+
+            $node = [
+                'id' => $it['id'],
+                'type' => $it['type'],
+                'label' => $it['label'],
+                'icon' => $it['icon'],
+                'route' => $it['route'],
+                'children' => []
+            ];
+            $byId[$it['id']] = $node;
+
+            if (($it['parent_id'] ?? null) === null) {
+                if ($it['label'] === 'Home') {
+                    $homeNode = &$byId[$it['id']];
+                } else if ($it['label'] === 'Profile') {
+                    $profileNode = &$byId[$it['id']];
+                } else {
+                    $tree[] = &$byId[$it['id']];
+                }
+            } else {
+                $parentId = $it['parent_id'];
+                if (isset($byId[$parentId])) {
+                    $byId[$parentId]['children'][] = &$byId[$it['id']];
+                }
+            }
+        }
+
+        $finalTree = [];
+        if ($homeNode) {
+            $finalTree[] = $homeNode;
+        }
+        $finalTree = array_merge($finalTree, $tree);
+        if ($profileNode) {
+            $finalTree[] = $profileNode;
+        }
+
+        return [
+            'menu_id' => $menu->id,
+            'menu_key' => $menu->key,
+            'items' => $finalTree,
+            'guest' => !$user,
+        ];
+    }
+
+    private function renderMenuCraxion($user, array $items, object $menu): array
+    {
+        $visibleForGuestRoot = ['Profile'];
         $permissions = $user ? $user->effectivePermissions() : [];
         $allowed = $user ? array_flip($permissions) : [];
 

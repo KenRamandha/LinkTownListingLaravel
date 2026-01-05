@@ -28,9 +28,13 @@ use App\Http\Controllers\UserProduct\UserProductPublicController;
 use App\Http\Controllers\UserProduct\MasterController;
 use App\Http\Controllers\UserProduct\LocationController;
 
+use App\Http\Controllers\Transaction\TransactionController;
+
+
 Route::middleware('optional.auth')->group(function () {
     Route::get('/home', [HomeController::class, 'index']);
     Route::get('/menus/{key}', [MenuController::class, 'showPublicAware']);
+    Route::get('/craxion-menus/{key}', [MenuController::class, 'showPublicAwareCraxion']);
     Route::get('/products/home', [ProductController::class, 'home']);
     Route::get('/products/search/filters', [ProductController::class, 'searchFilters']);
     Route::get('/provinces', [ProductController::class, 'provinces']);
@@ -142,4 +146,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/users/{id}/permissions', [UsersController::class, 'setPermissions']);
     Route::get('/users/{id}/profile', [UsersController::class, 'profile']);
     Route::put('/users/{id}/profile', [UsersController::class, 'updateProfile']);
+
+    // Transactions
+    Route::get('/transactions', [TransactionController::class, 'index']);
+    Route::get('/transactions/{id}', [TransactionController::class, 'show']);
+    Route::post('/transactions', [TransactionController::class, 'store']);
+    Route::put('/transactions/{id}', [TransactionController::class, 'update']);
+    Route::delete('/transactions/{id}', [TransactionController::class, 'destroy']);
+    
+    // Items (for transaction)
+    Route::get('/items/search', [TransactionController::class, 'searchItems']);
+    Route::get('/items/barcode/{barcode}', [TransactionController::class, 'getItemByBarcode']);
 });
