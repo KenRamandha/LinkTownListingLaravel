@@ -7,6 +7,7 @@ use App\Models\Transaction\TrDailyH;
 use App\Models\Transaction\TrDailyD;
 use App\Models\Transaction\MappingProduk;
 use App\Models\Transaction\MappingBarcode;
+use App\Models\Core\UserProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -22,15 +23,30 @@ class TransactionController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = TrDailyH::with(['details' => function($query) {
-                $query->whereNull('deleted_date');
-            }])
-            ->whereNull('deleted_date');
-
-            // Filter by Status
-            if ($request->has('status') && $request->status) {
+            // Determine filtering based on status parameter
+            $hasStatusFilter = $request->has('status') && $request->status;
+            $showDeleted = $hasStatusFilter && $request->status === 'deleted';
+            $showNonDeleted = $hasStatusFilter && $request->status !== 'deleted';
+            
+            $query = TrDailyH::with(['details' => function($query) use ($hasStatusFilter, $showNonDeleted) {
+                // Only filter details by deleted_date if filtering by non-deleted status
+                if ($showNonDeleted) {
+                    $query->whereNull('deleted_date');
+                }
+            }]);
+            
+            // Filter by deleted status only if status parameter is provided
+            if ($hasStatusFilter) {
+                if ($showDeleted) {
+                    $query->whereNotNull('deleted_date');
+                } else {
+                    $query->whereNull('deleted_date');
+                }
+                
+                // Filter by Status
                 $query->where('status', $request->status);
             }
+            // If no status filter, show all transactions (no deleted_date filter)
 
             // Filter by Date Range
             if ($request->has('start_date') && $request->start_date) {
@@ -165,6 +181,8 @@ class TransactionController extends Controller
             'items.*.price' => 'required|numeric|min:0',
             'items.*.note' => 'nullable|string',
             'items.*.type' => 'nullable|in:scan,manual',
+            'items.*.barcode' => 'nullable|array',
+            'items.*.barcode.*' => 'string',
         ]);
 
         if ($validator->fails()) {
@@ -182,7 +200,8 @@ class TransactionController extends Controller
 
             // Get authenticated user
             $userId = Auth::id();
-            $userName = Auth::user()->name ?? null;
+            $userProfile = UserProfile::where('user_id', $userId)->first();
+            $userName = $userProfile->name ?? null;
 
             // Calculate total price
             $totalPrice = 0;
@@ -217,11 +236,20 @@ class TransactionController extends Controller
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
                     'note_detail' => $item['note'] ?? null,
+                    'barcode' => $item['barcode'] ?? null,
                     'created_date' => now(),
                     'created_by' => $userId,
                     'updated_date' => now(),
                     'updated_by' => $userId,
                 ]);
+
+                // Set barcode flag to 1 for each barcode in array
+                if (isset($item['barcode']) && is_array($item['barcode'])) {
+                    foreach ($item['barcode'] as $barcode) {
+                        MappingBarcode::where('kode_barcode', $barcode)
+                            ->update(['flag' => '1', 'updated_flag' => now()]);
+                    }
+                }
             }
 
             DB::commit();
@@ -287,6 +315,8 @@ class TransactionController extends Controller
             'items.*.price' => 'required|numeric|min:0',
             'items.*.note' => 'nullable|string',
             'items.*.type' => 'nullable|in:scan,manual',
+            'items.*.barcode' => 'nullable|array',
+            'items.*.barcode.*' => 'string',
         ]);
 
         if ($validator->fails()) {
@@ -309,48 +339,134 @@ class TransactionController extends Controller
 
             $userId = Auth::id();
 
-            // Calculate total price
-            $totalPrice = 0;
-            foreach ($request->items as $item) {
-                $totalPrice += ($item['quantity'] * $item['price']);
-            }
-
-            // Update transaction header
+            // Update transaction header (without total_price first)
             $transaction->update([
                 'transaction_date' => $request->transaction_date,
                 'transaction_note' => $request->information,
                 'description' => $request->description,
-                'total_price' => $totalPrice,
                 'status' => $request->status ?? $transaction->status,
                 'updated_date' => now(),
                 'updated_by' => $userId,
             ]);
 
-            // Soft delete existing items
+            // Get kode_produk from request items
+            $requestKodeProduk = collect($request->items)->pluck('item_code')->toArray();
+
+            // Soft delete items that are NOT in the request (removed items)
             TrDailyD::where('daily_id', $transaction->daily_id)
                 ->whereNull('deleted_date')
+                ->whereNotIn('kode_produk', $requestKodeProduk)
                 ->update([
                     'deleted_date' => now(),
                     'deleted_by' => $userId,
                 ]);
 
-            // Create new items
-            foreach ($request->items as $item) {
-                TrDailyD::create([
-                    'daily_id' => $transaction->daily_id,
-                    'user_id' => $userId,
-                    'type' => $item['type'] ?? 'manual',
-                    'kode_produk' => $item['item_code'],
-                    'nama_produk' => $item['item_name'],
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                    'note_detail' => $item['note'] ?? null,
-                    'created_date' => now(),
-                    'created_by' => $userId,
-                    'updated_date' => now(),
-                    'updated_by' => $userId,
-                ]);
+            // Get all items that will be soft deleted and reset their barcode flags
+            $itemsToDelete = TrDailyD::where('daily_id', $transaction->daily_id)
+                ->whereNull('deleted_date')
+                ->whereNotIn('kode_produk', $requestKodeProduk)
+                ->get();
+
+            foreach ($itemsToDelete as $deletedItem) {
+                // Reset barcode flags to 0 for deleted items
+                if ($deletedItem->barcode && is_array($deletedItem->barcode)) {
+                    foreach ($deletedItem->barcode as $barcode) {
+                        MappingBarcode::where('kode_barcode', $barcode)
+                            ->update(['flag' => '0', 'updated_flag' => now()]);
+                    }
+                }
             }
+
+            // Soft delete items that are NOT in the request (removed items)
+            TrDailyD::where('daily_id', $transaction->daily_id)
+                ->whereNull('deleted_date')
+                ->whereNotIn('kode_produk', $requestKodeProduk)
+                ->update([
+                    'deleted_date' => now(),
+                    'deleted_by' => $userId,
+                ]);
+
+            // Update or create items based on kode_produk
+            foreach ($request->items as $item) {
+                // Check if item with same kode_produk already exists for this transaction
+                $existingItem = TrDailyD::where('daily_id', $transaction->daily_id)
+                    ->where('kode_produk', $item['item_code'])
+                    ->whereNull('deleted_date')
+                    ->first();
+
+                $newBarcodes = $item['barcode'] ?? [];
+                $newBarcodes = is_array($newBarcodes) ? $newBarcodes : [];
+
+                if ($existingItem) {
+                    // Get old barcodes to compare
+                    $oldBarcodes = $existingItem->barcode ?? [];
+                    $oldBarcodes = is_array($oldBarcodes) ? $oldBarcodes : [];
+
+                    // Reset flag for removed barcodes
+                    $barcodesToRemove = array_diff($oldBarcodes, $newBarcodes);
+                    foreach ($barcodesToRemove as $barcode) {
+                        MappingBarcode::where('kode_barcode', $barcode)
+                            ->update(['flag' => '0', 'updated_flag' => now()]);
+                    }
+
+                    // Set flag for new barcodes
+                    $barcodesToAdd = array_diff($newBarcodes, $oldBarcodes);
+                    foreach ($barcodesToAdd as $barcode) {
+                        MappingBarcode::where('kode_barcode', $barcode)
+                            ->update(['flag' => '1', 'updated_flag' => now()]);
+                    }
+
+                    // Update existing item
+                    $existingItem->update([
+                        'type' => $item['type'] ?? 'manual',
+                        'nama_produk' => $item['item_name'],
+                        'quantity' => $item['quantity'],
+                        'price' => $item['price'],
+                        'note_detail' => $item['note'] ?? null,
+                        'barcode' => $newBarcodes ?: null,
+                        'updated_date' => now(),
+                        'updated_by' => $userId,
+                    ]);
+                } else {
+                    // Set flag = 1 for all barcodes of new item
+                    foreach ($newBarcodes as $barcode) {
+                        MappingBarcode::where('kode_barcode', $barcode)
+                            ->update(['flag' => '1', 'updated_flag' => now()]);
+                    }
+
+                    // Create new item
+                    TrDailyD::create([
+                        'daily_id' => $transaction->daily_id,
+                        'user_id' => $userId,
+                        'type' => $item['type'] ?? 'manual',
+                        'kode_produk' => $item['item_code'],
+                        'nama_produk' => $item['item_name'],
+                        'quantity' => $item['quantity'],
+                        'price' => $item['price'],
+                        'note_detail' => $item['note'] ?? null,
+                        'barcode' => $newBarcodes ?: null,
+                        'created_date' => now(),
+                        'created_by' => $userId,
+                        'updated_date' => now(),
+                        'updated_by' => $userId,
+                    ]);
+                }
+            }
+
+            // Recalculate total_price from database (only non-deleted items)
+            $totalPrice = TrDailyD::where('daily_id', $transaction->daily_id)
+                ->whereNull('deleted_date')
+                ->get()
+                ->sum(function($item) {
+                    return $item->quantity * $item->price;
+                });
+
+            // Update total_price
+            $transaction->update([
+                'total_price' => $totalPrice,
+                'updated_date' => now(),
+                'updated_by' => $userId,
+            ]);
 
             DB::commit();
 
@@ -417,9 +533,25 @@ class TransactionController extends Controller
 
             // Soft delete transaction header
             $transaction->update([
+                'status' => 'deleted',
                 'deleted_date' => now(),
                 'deleted_by' => $userId,
             ]);
+
+            // Get all items with barcodes and reset their flags
+            $items = TrDailyD::where('daily_id', $transaction->daily_id)
+                ->whereNull('deleted_date')
+                ->get();
+
+            foreach ($items as $item) {
+                if ($item->barcode && is_array($item->barcode)) {
+                    // Reset barcode flags to 0 for each barcode in array
+                    foreach ($item->barcode as $barcode) {
+                        MappingBarcode::where('kode_barcode', $barcode)
+                            ->update(['flag' => '0', 'updated_flag' => now()]);
+                    }
+                }
+            }
 
             // Soft delete all items
             TrDailyD::where('daily_id', $transaction->daily_id)
@@ -495,13 +627,19 @@ class TransactionController extends Controller
         try {
             // Find barcode mapping
             $barcodeMapping = MappingBarcode::where('kode_barcode', $barcode)
-                ->where('flag', '0') // Only active items
                 ->first();
 
             if (!$barcodeMapping) {
                 return response()->json([
-                    'message' => 'Item not found'
+                    'message' => 'Barcode tidak ditemukan'
                 ], 404);
+            }
+
+            // Check if barcode is already in use
+            if ($barcodeMapping->flag == '1') {
+                return response()->json([
+                    'message' => 'Barcode sudah digunakan'
+                ], 409);
             }
 
             // Get product details
@@ -510,10 +648,11 @@ class TransactionController extends Controller
 
             if (!$item) {
                 return response()->json([
-                    'message' => 'Item not found'
+                    'message' => 'Produk tidak ditemukan'
                 ], 404);
             }
 
+            // Note: Flag will be set to 1 when transaction is saved, not here
             $data = [
                 'code' => $item->kode_produk,
                 'name' => $item->nama_produk,

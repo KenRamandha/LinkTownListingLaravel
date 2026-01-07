@@ -21,6 +21,7 @@ class TrDailyD extends Model
         'quantity',
         'price',
         'note_detail',
+        'barcode',
         'created_date',
         'created_by',
         'updated_date',
@@ -32,6 +33,7 @@ class TrDailyD extends Model
     protected $casts = [
         'quantity' => 'integer',
         'price' => 'float',
+        'barcode' => 'json',
         'created_date' => 'datetime',
         'updated_date' => 'datetime',
         'deleted_date' => 'datetime',
