@@ -5,11 +5,11 @@ namespace App\Models\Transaction;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+// Model TrDailyD - Representasi tabel tr_daily_d
 class TrDailyD extends Model
 {
     protected $table = 'tr_daily_d';
 
-    // Disable Laravel's default timestamps since the table uses custom timestamp fields
     public $timestamps = false;
 
     protected $fillable = [
@@ -39,33 +39,21 @@ class TrDailyD extends Model
         'deleted_date' => 'datetime',
     ];
 
-    /**
-     * Get the header record for this detail
-     */
     public function header(): BelongsTo
     {
         return $this->belongsTo(TrDailyH::class, 'daily_id', 'daily_id');
     }
 
-    /**
-     * Scope for scan type records
-     */
     public function scopeScan($query)
     {
         return $query->where('type', 'scan');
     }
 
-    /**
-     * Scope for manual type records
-     */
     public function scopeManual($query)
     {
         return $query->where('type', 'manual');
     }
 
-    /**
-     * Scope for non-deleted records
-     */
     public function scopeActive($query)
     {
         return $query->whereNull('deleted_date');

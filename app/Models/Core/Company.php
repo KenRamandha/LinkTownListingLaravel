@@ -6,6 +6,7 @@ use App\Models\Menus\Menu;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model Company - Representasi tabel companies
 class Company extends Model
 {
     use HasFactory;

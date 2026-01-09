@@ -10,6 +10,7 @@ use Throwable;
 
 class AuditLogsController extends Controller
 {
+    // GET /api/audit/logs - Ambil log audit dengan filter
     public function index(Request $r)
     {
         try { if(!$r->user()->hasPermission('audit.view')) return $this->fail('Forbidden',403,'FORBIDDEN');

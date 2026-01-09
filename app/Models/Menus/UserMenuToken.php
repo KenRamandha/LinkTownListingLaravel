@@ -5,6 +5,7 @@ namespace App\Models\Menus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model UserMenuToken - Representasi tabel user_menu_tokens
 class UserMenuToken extends Model
 {
     use HasFactory;

@@ -13,6 +13,7 @@ use App\Models\Core\User;
 
 class UsersController extends Controller
 {
+    // GET /api/core/users - Ambil daftar user dengan filter
     public function index(Request $r)
     {
         try {
@@ -35,6 +36,8 @@ class UsersController extends Controller
         }
     }
 
+
+    // POST /api/core/users - Buat user baru
     public function store(Request $r)
     {
         try {
@@ -74,6 +77,8 @@ class UsersController extends Controller
         }
     }
 
+
+    // GET /api/core/users/{id} - Ambil detail user
     public function show(Request $r, string $id)
     {
         try {
@@ -91,6 +96,8 @@ class UsersController extends Controller
         }
     }
 
+
+    // PUT /api/core/users/{id} - Update data user
     public function update(Request $r, string $id)
     {
         try {
@@ -127,6 +134,8 @@ class UsersController extends Controller
         }
     }
 
+
+    // DELETE /api/core/users/{id} - Hapus user
     public function destroy(Request $r, string $id)
     {
         try {
@@ -140,6 +149,8 @@ class UsersController extends Controller
         }
     }
 
+
+    // GET /api/core/users/{id}/roles - Ambil roles yang dimiliki user
     public function roles(Request $r, string $id)
     {
         try {
@@ -163,6 +174,8 @@ class UsersController extends Controller
         }
     }
 
+
+    // PUT /api/core/users/{id}/roles - Set roles untuk user
     public function setRoles(Request $r, string $id)
     {
         try {
@@ -189,6 +202,8 @@ class UsersController extends Controller
         }
     }
 
+
+    // GET /api/core/users/{id}/permissions - Ambil permission spesifik user (direct permission)
     public function permissions(Request $r, string $id)
     {
         try {
@@ -207,6 +222,8 @@ class UsersController extends Controller
         }
     }
 
+
+    // PUT /api/core/users/{id}/permissions - Set permission spesifik user
     public function setPermissions(Request $r, string $id)
     {
         try {
@@ -233,6 +250,8 @@ class UsersController extends Controller
         }
     }
 
+
+    // GET /api/core/users/{id}/profile - Ambil profil user
     public function profile(Request $r, string $id)
     {
         try {
@@ -247,6 +266,8 @@ class UsersController extends Controller
         }
     }
 
+
+    // PUT /api/core/users/{id}/profile - Update profil user
     public function updateProfile(Request $r, string $id)
     {
         try {

@@ -5,6 +5,7 @@ namespace App\Models\Core;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model UserProfile - Representasi tabel user_profiles
 class UserProfile extends Model
 {
     use HasFactory;

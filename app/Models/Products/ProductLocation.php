@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Support\ProductCache;
 
+// Model ProductLocation - Representasi tabel product_locations
 class ProductLocation extends Model
 {
     use HasFactory;

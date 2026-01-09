@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Support\ProductCache;
 
+// Model ProductImage - Representasi tabel product_images
 class ProductImage extends Model
 {
     use HasFactory;

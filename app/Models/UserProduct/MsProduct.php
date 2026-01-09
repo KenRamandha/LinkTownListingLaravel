@@ -6,11 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+// Model MsProduct - Representasi tabel tr_product
 class MsProduct extends Model
 {
     protected $table = 'tr_product';
-
-    // Uses default Laravel timestamps: created_at, updated_at
 
     protected $fillable = [
         'product_id',
@@ -60,81 +59,51 @@ class MsProduct extends Model
         'expired_date' => 'date',
     ];
 
-    /**
-     * Get the route key name for model binding
-     */
     public function getRouteKeyName(): string
     {
         return 'product_id';
     }
 
-    /**
-     * Scope for draft products
-     */
     public function scopeDraft($query)
     {
         return $query->where('status', 'Draft');
     }
 
-    /**
-     * Scope for published products
-     */
     public function scopePublished($query)
     {
         return $query->where('status', 'Publish');
     }
 
-    /**
-     * Get the images for this product
-     */
     public function images(): HasMany
     {
         return $this->hasMany(MsProductImage::class, 'product_id', 'product_id');
     }
 
-    /**
-     * Get the display images for this product
-     */
     public function displayImages(): HasMany
     {
         return $this->images()->where('image_type', 'DISPLAY')->orderBy('order');
     }
 
-    /**
-     * Get the layout images for this product
-     */
     public function layoutImages(): HasMany
     {
         return $this->images()->where('image_type', 'LAYOUT')->orderBy('order');
     }
 
-    /**
-     * Get the main image for this product
-     */
     public function mainImage()
     {
         return $this->images()->where('main', 1)->first();
     }
 
-    /**
-     * Relationship for main image (Eager Loadable)
-     */
     public function mainImageRelation()
     {
         return $this->hasOne(MsProductImage::class, 'product_id', 'product_id')->where('main', 1);
     }
 
-    /**
-     * Get the locations for this product
-     */
     public function locations(): HasMany
     {
         return $this->hasMany(MsProductLocation::class, 'product_id', 'product_id');
     }
 
-    /**
-     * Get decoded specification as array
-     */
     public function getSpecificationArrayAttribute(): ?array
     {
         if (empty($this->specification)) {
@@ -145,9 +114,6 @@ class MsProduct extends Model
         return is_array($decoded) ? $decoded : null;
     }
 
-    /**
-     * Get decoded facility as array
-     */
     public function getFacilityArrayAttribute(): ?array
     {
         if (empty($this->facility)) {
@@ -158,45 +124,30 @@ class MsProduct extends Model
         return is_array($decoded) ? $decoded : null;
     }
 
-    /**
-     * Get updated listing type detail
-     */
     public function listingTypeDetail(): HasOne
     {
         return $this->hasOne(MsProductDetail::class, 'detail_id', 'listing_type')
                     ->where('detail_type', 'LISTING_TYPE');
     }
 
-    /**
-     * Get updated product type detail
-     */
     public function productTypeDetail(): HasOne
     {
         return $this->hasOne(MsProductDetail::class, 'detail_id', 'product_type')
                     ->where('detail_type', 'PROPERTY_TYPE');
     }
 
-    /**
-     * Get updated condition detail
-     */
     public function conditionDetail(): HasOne
     {
         return $this->hasOne(MsProductDetail::class, 'detail_id', 'condition')
                     ->where('detail_type', 'CONDITION');
     }
 
-    /**
-     * Get updated label detail
-     */
     public function labelDetail(): HasOne
     {
         return $this->hasOne(MsProductDetail::class, 'detail_id', 'label')
                     ->where('detail_type', 'LABEL');
     }
 
-    /**
-     * Get the creator of the product (Agent/User)
-     */
     public function creator()
     {
         return $this->belongsTo(\App\Models\Core\User::class, 'created_by');

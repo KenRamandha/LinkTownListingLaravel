@@ -20,6 +20,7 @@ class AuthController extends Controller
     private const PLAIN_TOKEN_PREFIX = 'plain_token:';
     private const DEFAULT_TOKEN_TTL_DAYS = 7;
 
+    // POST /api/auth/login - Login user dengan phone dan password, return access & refresh token
     public function login(Request $r)
     {
         try {
@@ -79,6 +80,7 @@ class AuthController extends Controller
         }
     }
 
+    // POST /api/auth/refresh - Refresh access token menggunakan refresh token
     public function refresh(Request $r)
     {
         try {
@@ -134,6 +136,7 @@ class AuthController extends Controller
         }
     }
 
+    // POST /api/auth/logout - Logout user dan hapus token saat ini
     public function logout(Request $r)
     {
         try {

@@ -11,6 +11,7 @@ use Throwable;
 
 class ModulesController extends Controller
 {
+    // GET /api/core/modules - Ambil daftar modul
     public function index(Request $r)
     {
         try {
@@ -26,6 +27,8 @@ class ModulesController extends Controller
             return $this->fail('Gagal memuat modules', 500, 'SERVER_ERROR');
         }
     }
+
+    // POST /api/core/modules - Buat modul baru
     public function store(Request $r)
     {
         try {
@@ -56,6 +59,8 @@ class ModulesController extends Controller
             return $this->fail('Gagal membuat module', 500, 'SERVER_ERROR');
         }
     }
+
+    // PUT /api/core/modules/{id} - Update modul
     public function update(Request $r, string $id)
     {
         try {
@@ -83,6 +88,8 @@ class ModulesController extends Controller
             return $this->fail('Gagal memperbarui module', 500, 'SERVER_ERROR');
         }
     }
+
+    // DELETE /api/core/modules/{id} - Hapus modul
     public function destroy(Request $r, string $id)
     {
         try {

@@ -10,6 +10,7 @@ use Throwable;
 
 class MenuController extends Controller
 {
+    // GET /api/menus/{key} - Ambil menu berdasarkan key untuk LinkTown
     public function showPublicAware(Request $r, string $key)
     {
         try {
@@ -42,6 +43,7 @@ class MenuController extends Controller
         }
     }
 
+    // GET /api/craxion/menus/{key} - Ambil menu berdasarkan key untuk Craxion
     public function showPublicAwareCraxion(Request $r, string $key)
     {
         try {

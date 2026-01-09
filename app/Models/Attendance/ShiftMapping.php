@@ -5,6 +5,7 @@ namespace App\Models\Attendance;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model ShiftMapping - Representasi tabel shifts_mapping
 class ShiftMapping extends Model
 {
     use HasFactory;

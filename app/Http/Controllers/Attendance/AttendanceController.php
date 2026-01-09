@@ -16,6 +16,7 @@ use App\Models\Attendance\ShiftMapping;
 
 class AttendanceController extends Controller
 {
+    // GET /api/attendance/locations - Ambil daftar lokasi yang diizinkan untuk absensi
     public function allowedLocations(Request $r)
     {
         try {
@@ -78,6 +79,7 @@ class AttendanceController extends Controller
         return asset('storage/' . $path);
     }
 
+    // POST /api/attendance/clock - Clock in/out atau break in/out absensi
     public function clock(Request $r)
     {
         try {
@@ -272,6 +274,7 @@ class AttendanceController extends Controller
         }
     }
 
+    // GET /api/attendance/logs - Ambil log absensi untuk tanggal tertentu
     public function logs(Request $r)
     {
         try {
@@ -286,6 +289,7 @@ class AttendanceController extends Controller
         }
     }
 
+    // GET /api/attendance/overview - Ambil ringkasan absensi untuk tanggal tertentu
     public function overview(Request $r)
     {
         try {
@@ -317,6 +321,7 @@ class AttendanceController extends Controller
         }
     }
 
+    // GET /api/attendance/history - Ambil riwayat absensi bulanan
     public function history(Request $r)
     {
         try {
@@ -478,6 +483,7 @@ class AttendanceController extends Controller
         }
     }
 
+    // GET /api/attendance/history/{mappingId} - Ambil detail riwayat absensi
     public function historyDetail(Request $r, string $mappingId)
     {
         try {

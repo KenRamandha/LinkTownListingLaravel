@@ -21,6 +21,7 @@ class ProductController extends Controller
     private const PROPERTY_PRODUCT_TYPE_IDS = [1, 2, 3, 4];
     private const LISTING_PRODUCT_TYPE_IDS  = [5, 6, 7, 10, 11];
 
+    // GET /api/products/search - Pencarian produk dengan filter dan pagination
     public function search(Request $request)
     {
         $validated = Validator::validate($request->all(), [
@@ -225,6 +226,7 @@ class ProductController extends Controller
         }
     }
 
+    // GET /api/products/search/filters - Ambil opsi filter untuk pencarian produk
     public function searchFilters()
     {
         try {
@@ -298,6 +300,7 @@ class ProductController extends Controller
         }
     }
 
+    // GET /api/products/provinces - Ambil daftar semua provinsi
     public function provinces()
     {
         try {
@@ -327,6 +330,7 @@ class ProductController extends Controller
         }
     }
 
+    // GET /api/products/provinces/{provinceId}/cities - Ambil daftar kota berdasarkan provinsi
     public function citiesByProvince(int $provinceId)
     {
         try {
@@ -362,6 +366,7 @@ class ProductController extends Controller
         }
     }
 
+    // GET /api/products/home - Ambil produk untuk halaman home
     public function home(Request $request)
     {
         $validated = Validator::validate($request->all(), [
@@ -393,6 +398,7 @@ class ProductController extends Controller
         }
     }
 
+    // GET /api/products/{productId} - Ambil detail produk berdasarkan ID
     public function show(int $productId)
     {
         try {
@@ -418,6 +424,7 @@ class ProductController extends Controller
         }
     }
 
+    // GET /api/products/city/{cityId} - Ambil produk teratas berdasarkan kota
     public function topByCity(Request $request, int $cityId)
     {
         $validated = Validator::validate($request->all(), [
@@ -634,12 +641,7 @@ class ProductController extends Controller
             ->all();
     }
 
-    /**
-     * Normalisasi field spesifikasi untuk response listing (home, search, topByCity).
-     *
-     * - Decode `specification_value` (jika string JSON) menjadi array `specifications`.
-     * - Hilangkan `specification_value` dari payload agar FE cukup pakai `specifications`.
-     */
+    // Normalisasi field spesifikasi - decode specification_value menjadi array specifications
     private function normalizeSpecificationsPayload(array $payload): array
     {
         if (array_key_exists('specification_value', $payload) && $payload['specification_value'] !== null) {
@@ -737,13 +739,7 @@ class ProductController extends Controller
         return [$value];
     }
 
-    /**
-     * Decode nilai spesifikasi dari berbagai bentuk menjadi array seragam.
-     *
-     * - Jika sudah array      -> kembalikan array_values.
-     * - Jika string JSON      -> decode (termasuk kasus double-encoded), dan jika hasilnya array, kembalikan array_values.
-     * - Jika string biasa/null/tipe lain -> bungkus dalam array satu elemen.
-     */
+    // Decode nilai spesifikasi dari berbagai bentuk (array/JSON/string) menjadi array seragam
     private function decodeSpecificationValue($value): array
     {
         if (is_array($value)) {

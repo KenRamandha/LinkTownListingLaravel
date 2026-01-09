@@ -13,6 +13,7 @@ use Throwable;
 
 class VisitController extends Controller
 {
+    // POST /api/visits/clock - Check-in atau check-out kunjungan
     public function clock(Request $request)
     {
         try {
@@ -137,6 +138,7 @@ class VisitController extends Controller
         }
     }
 
+    // GET /api/visits/today - Ambil daftar kunjungan hari ini
     public function today(Request $request)
     {
         try {
@@ -181,6 +183,7 @@ class VisitController extends Controller
         }
     }
 
+    // GET /api/visits/{visit} - Ambil detail kunjungan berdasarkan ID
     public function show(Request $request, Visit $visit)
     {
         try {
@@ -198,6 +201,7 @@ class VisitController extends Controller
         }
     }
 
+    // GET /api/visits/history - Ambil riwayat kunjungan dengan filter tanggal dan status
     public function history(Request $request)
     {
         try {

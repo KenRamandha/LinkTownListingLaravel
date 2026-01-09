@@ -5,6 +5,7 @@ namespace App\Models\Menus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model RoleMenuVisibility - Representasi tabel role_menu_visibility
 class RoleMenuVisibility extends Model
 {
     use HasFactory;

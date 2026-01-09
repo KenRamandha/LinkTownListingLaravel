@@ -7,6 +7,7 @@ use App\Models\Menus\RoleMenuVisibility;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model Role - Representasi tabel roles
 class Role extends Model
 {
     use HasFactory;

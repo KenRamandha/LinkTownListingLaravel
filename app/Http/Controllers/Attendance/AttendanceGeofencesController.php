@@ -11,6 +11,7 @@ use Throwable;
 
 class AttendanceGeofencesController extends Controller
 {
+    // GET /api/attendance/geofences - Ambil daftar geofences
     public function index(Request $r)
     {
         try {
@@ -24,6 +25,8 @@ class AttendanceGeofencesController extends Controller
         }
     }
 
+
+    // POST /api/attendance/geofences - Buat geofence baru
     public function store(Request $r)
     {
         try {
@@ -55,6 +58,8 @@ class AttendanceGeofencesController extends Controller
         }
     }
 
+
+    // PUT /api/attendance/geofences/{id} - Update geofence
     public function update(Request $r, string $id)
     {
         try {
@@ -80,6 +85,8 @@ class AttendanceGeofencesController extends Controller
         }
     }
 
+
+    // DELETE /api/attendance/geofences/{id} - Hapus geofence
     public function destroy(Request $r, string $id)
     {
         try {

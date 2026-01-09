@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Support\ProductCache;
 
+// Model ProductSpecification - Representasi tabel product_specifications
 class ProductSpecification extends Model
 {
     use HasFactory;

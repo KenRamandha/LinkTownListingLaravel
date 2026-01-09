@@ -11,6 +11,7 @@ use Throwable;
 
 class FeaturesController extends Controller
 {
+    // GET /api/core/features - Ambil daftar fitur dengan filter modul
     public function index(Request $r)
     {
         try {
@@ -30,6 +31,8 @@ class FeaturesController extends Controller
             return $this->fail('Gagal memuat features', 500, 'SERVER_ERROR');
         }
     }
+
+    // POST /api/core/features - Buat fitur baru
     public function store(Request $r)
     {
         try {
@@ -63,6 +66,8 @@ class FeaturesController extends Controller
             return $this->fail('Gagal membuat feature', 500, 'SERVER_ERROR');
         }
     }
+
+    // PUT /api/core/features/{id} - Update fitur
     public function update(Request $r, string $id)
     {
         try {
@@ -100,6 +105,8 @@ class FeaturesController extends Controller
             return $this->fail('Gagal memperbarui feature', 500, 'SERVER_ERROR');
         }
     }
+
+    // DELETE /api/core/features/{id} - Hapus fitur
     public function destroy(Request $r, string $id)
     {
         try {

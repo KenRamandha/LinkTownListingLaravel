@@ -5,6 +5,7 @@ namespace App\Models\UserProduct;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+// Model MsProductLocation - Representasi tabel tr_product_location
 class MsProductLocation extends Model
 {
     protected $table = 'tr_product_location';
@@ -25,9 +26,6 @@ class MsProductLocation extends Model
         'longitude' => 'double',
     ];
 
-    /**
-     * Get the product that owns this location
-     */
     public function product(): BelongsTo
     {
         return $this->belongsTo(MsProduct::class, 'product_id', 'product_id');

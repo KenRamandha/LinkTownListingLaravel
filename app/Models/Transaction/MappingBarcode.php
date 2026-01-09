@@ -4,11 +4,11 @@ namespace App\Models\Transaction;
 
 use Illuminate\Database\Eloquent\Model;
 
+// Model MappingBarcode - Representasi tabel mapping_barcode
 class MappingBarcode extends Model
 {
     protected $table = 'mapping_barcode';
 
-    // Disable Laravel's default timestamps since the table uses custom timestamp fields
     public $timestamps = false;
 
     protected $fillable = [
@@ -22,9 +22,6 @@ class MappingBarcode extends Model
         'updated_flag' => 'date',
     ];
 
-    /**
-     * Get the default flag value
-     */
     protected $attributes = [
         'flag' => '0',
     ];

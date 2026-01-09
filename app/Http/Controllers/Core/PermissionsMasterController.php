@@ -10,6 +10,7 @@ use Throwable;
 
 class PermissionsMasterController extends Controller
 {
+    // GET /api/core/permissions - Ambil daftar semua permission master
     public function index(Request $r)
     {
         try {

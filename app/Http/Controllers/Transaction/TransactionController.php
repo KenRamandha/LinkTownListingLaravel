@@ -12,14 +12,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
 class TransactionController extends Controller
 {
-    /**
-     * Get list of all transactions
-     * GET /api/transactions
-     */
+    // GET /api/transactions - Menampilkan daftar transaksi dengan filter status, tanggal, dan pagination
     public function index(Request $request)
     {
         try {
@@ -87,6 +85,7 @@ class TransactionController extends Controller
                     }),
                     'created_at' => $transaction->created_date,
                     'updated_at' => $transaction->updated_date,
+                    'image_url' => $this->publicUrl($transaction->url),
                 ];
             });
 
@@ -108,10 +107,7 @@ class TransactionController extends Controller
         }
     }
 
-    /**
-     * Get single transaction by ID
-     * GET /api/transactions/{id}
-     */
+    // GET /api/transactions/{id} - Menampilkan detail transaksi berdasarkan ID
     public function show($id)
     {
         try {
@@ -148,6 +144,8 @@ class TransactionController extends Controller
                 }),
                 'created_at' => $transaction->created_date,
                 'updated_at' => $transaction->updated_date,
+                'updated_at' => $transaction->updated_date,
+                'image_url' => $this->publicUrl($transaction->url),
             ];
 
             return response()->json([
@@ -162,10 +160,7 @@ class TransactionController extends Controller
         }
     }
 
-    /**
-     * Create new transaction
-     * POST /api/transactions
-     */
+    // POST /api/transactions - Membuat transaksi baru dengan items dan foto (optional)
     public function store(Request $request)
     {
         // Validation
@@ -183,6 +178,7 @@ class TransactionController extends Controller
             'items.*.type' => 'nullable|in:scan,manual',
             'items.*.barcode' => 'nullable|array',
             'items.*.barcode.*' => 'string',
+            'image' => 'nullable|image|max:2048',
         ]);
 
         if ($validator->fails()) {
@@ -209,6 +205,15 @@ class TransactionController extends Controller
                 $totalPrice += ($item['quantity'] * $item['price']);
             }
 
+            // Upload foto ke storage/app/public/transaction/{daily_id}/, simpan path di kolom url
+            $imageUrl = null;
+            if ($request->hasFile('image')) {
+                $file = $request->file('image');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->storeAs('transaction/' . $transactionNumber, $filename, 'public');
+                $imageUrl = 'transaction/' . $transactionNumber . '/' . $filename;
+            }
+
             // Create transaction header
             $transaction = TrDailyH::create([
                 'daily_id' => $transactionNumber,
@@ -218,6 +223,7 @@ class TransactionController extends Controller
                 'transaction_note' => $request->information,
                 'description' => $request->description,
                 'total_price' => $totalPrice,
+                'url' => $imageUrl,
                 'status' => $request->status ?? 'pending',
                 'created_date' => now(),
                 'created_by' => $userId,
@@ -280,6 +286,8 @@ class TransactionController extends Controller
                 }),
                 'created_at' => $transaction->created_date,
                 'updated_at' => $transaction->updated_date,
+                'updated_at' => $transaction->updated_date,
+                'image_url' => $this->publicUrl($transaction->url),
             ];
 
             return response()->json([
@@ -296,10 +304,7 @@ class TransactionController extends Controller
         }
     }
 
-    /**
-     * Update existing transaction
-     * PUT /api/transactions/{id}
-     */
+    // PUT /api/transactions/{id} - Update transaksi, handle items dan foto baru
     public function update(Request $request, $id)
     {
         // Validation
@@ -317,6 +322,7 @@ class TransactionController extends Controller
             'items.*.type' => 'nullable|in:scan,manual',
             'items.*.barcode' => 'nullable|array',
             'items.*.barcode.*' => 'string',
+            'image' => 'nullable|image|max:2048',
         ]);
 
         if ($validator->fails()) {
@@ -338,6 +344,18 @@ class TransactionController extends Controller
             DB::beginTransaction();
 
             $userId = Auth::id();
+
+            // Upload foto baru dan hapus foto lama jika ada
+            if ($request->hasFile('image')) {
+                if ($transaction->url && Storage::disk('public')->exists($transaction->url)) {
+                    Storage::disk('public')->delete($transaction->url);
+                }
+
+                $file = $request->file('image');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->storeAs('transaction/' . $transaction->daily_id, $filename, 'public');
+                $transaction->url = 'transaction/' . $transaction->daily_id . '/' . $filename;
+            }
 
             // Update transaction header (without total_price first)
             $transaction->update([
@@ -496,6 +514,8 @@ class TransactionController extends Controller
                 }),
                 'created_at' => $transaction->created_date,
                 'updated_at' => $transaction->updated_date,
+                'updated_at' => $transaction->updated_date,
+                'image_url' => $this->publicUrl($transaction->url),
             ];
 
             return response()->json([
@@ -512,10 +532,7 @@ class TransactionController extends Controller
         }
     }
 
-    /**
-     * Delete transaction
-     * DELETE /api/transactions/{id}
-     */
+    // DELETE /api/transactions/{id} - Soft delete transaksi dan reset flag barcode
     public function destroy($id)
     {
         try {
@@ -577,10 +594,7 @@ class TransactionController extends Controller
         }
     }
 
-    /**
-     * Search items by code or name
-     * GET /api/items/search?q={query}
-     */
+    // GET /api/items/search?q={query} - Cari item berdasarkan kode atau nama produk
     public function searchItems(Request $request)
     {
         try {
@@ -618,10 +632,7 @@ class TransactionController extends Controller
         }
     }
 
-    /**
-     * Get item by barcode
-     * GET /api/items/barcode/{barcode}
-     */
+    // GET /api/items/barcode/{barcode} - Ambil detail produk dari barcode (validasi flag)
     public function getItemByBarcode($barcode)
     {
         try {
@@ -671,9 +682,7 @@ class TransactionController extends Controller
         }
     }
 
-    /**
-     * Generate unique transaction number with format YYYYMMDDXXXX
-     */
+    // Generate nomor transaksi unik format YYYYMMDDXXXX (contoh: 202401090001)
     private function generateTransactionNumber($date)
     {
         $prefix = Carbon::parse($date)->format('Ymd');
@@ -693,5 +702,17 @@ class TransactionController extends Controller
         
         // Format: YYYYMMDD + 4-digit sequence (padded with zeros)
         return $prefix . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+    }
+
+    // Helper untuk generate URL publik dari path storage
+    private function publicUrl(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        $path = ltrim($path, '/');
+
+        return asset('storage/' . $path);
     }
 }

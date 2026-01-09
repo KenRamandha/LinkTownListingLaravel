@@ -5,6 +5,7 @@ namespace App\Models\Core;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model Action - Representasi tabel actions
 class Action extends Model
 {
     use HasFactory;

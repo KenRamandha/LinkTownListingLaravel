@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\DB;
 use App\Support\UserCache;
 
+// Model User - Representasi tabel users
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;

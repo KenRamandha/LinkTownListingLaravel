@@ -6,6 +6,7 @@ use App\Models\Menus\MenuItem;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model Feature - Representasi tabel features
 class Feature extends Model
 {
     use HasFactory;

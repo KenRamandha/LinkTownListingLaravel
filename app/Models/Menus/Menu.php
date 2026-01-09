@@ -5,6 +5,7 @@ namespace App\Models\Menus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model Menu - Representasi tabel menus
 class Menu extends Model
 {
     use HasFactory;

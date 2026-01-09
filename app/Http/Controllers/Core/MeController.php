@@ -11,6 +11,7 @@ use Throwable;
 
 class MeController extends Controller
 {
+    // GET /api/me - Ambil data user yang sedang login
     public function show(Request $r)
     {
         try {
@@ -21,6 +22,7 @@ class MeController extends Controller
         }
     }
 
+    // GET /api/me/permissions - Ambil daftar permissions user
     public function permissions(Request $r)
     {
         try {
@@ -34,6 +36,7 @@ class MeController extends Controller
         }
     }
 
+    // GET /api/me/profile - Ambil profil lengkap user
     public function profile(Request $r)
     {
         try {
@@ -46,6 +49,7 @@ class MeController extends Controller
         }
     }
 
+    // PUT /api/me/profile - Update profil user (phone, avatar, position)
     public function updateProfile(Request $r)
     {
         try {

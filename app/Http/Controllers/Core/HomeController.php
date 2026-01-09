@@ -10,6 +10,7 @@ use Throwable;
 
 class HomeController extends Controller
 {
+    // GET /api/home - Ambil daftar listing untuk halaman home
     public function index(Request $r)
     {
         try {

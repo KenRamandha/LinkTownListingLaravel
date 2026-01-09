@@ -16,9 +16,7 @@ use Throwable;
 
 class UserProductController extends Controller
 {
-    /**
-     * Generate unique product ID
-     */
+    // Generate unique product ID
     private function generateProductId(): string
     {
         $date = now()->format('Ymd');
@@ -36,13 +34,7 @@ class UserProductController extends Controller
         return "PRD-{$date}-{$newNumber}";
     }
 
-    /**
-     * Calculate commission price from base price and percentage
-     * 
-     * @param mixed $price The base price (selling_price or rental_price)
-     * @param mixed $percentage The commission percentage (0-100)
-     * @return float|null The calculated commission price
-     */
+    // Calculate commission price from base price and percentage
     private function calculateCommission(mixed $price, mixed $percentage): ?float
     {
         if ($price === null || $percentage === null) {
@@ -59,9 +51,7 @@ class UserProductController extends Controller
         return ($priceFloat * $percentageInt) / 100;
     }
 
-    /**
-     * Get validation rules for product
-     */
+    // Get validation rules for product
     private function getValidationRules(bool $isUpdate = false): array
     {
         return [
@@ -104,9 +94,7 @@ class UserProductController extends Controller
         ];
     }
 
-    /**
-     * Handle image uploads for a product (APPEND mode - keeps existing images)
-     */
+    // Handle image uploads for a product (APPEND mode - keeps existing images)
     private function handleImages(MsProduct $product, Request $request, ?string $createdBy = null): void
     {
         $basePath = "products/{$product->product_id}";
@@ -187,9 +175,7 @@ class UserProductController extends Controller
         }
     }
 
-    /**
-     * Delete a single image file from storage
-     */
+    // Delete a single image file from storage
     private function deleteImageFile(?string $url): void
     {
         if (!$url) {
@@ -202,9 +188,7 @@ class UserProductController extends Controller
         }
     }
 
-    /**
-     * Delete all images for a product (both storage and database)
-     */
+    // Delete all images for a product (both storage and database)
     private function deleteProductImages(string $productId): void
     {
         // Delete from database
@@ -217,9 +201,7 @@ class UserProductController extends Controller
         }
     }
 
-    /**
-     * Cleanup uploaded files on error
-     */
+    // Cleanup uploaded files on error
     private function cleanupUploadedFiles(?string $productId): void
     {
         if (!$productId) {
@@ -232,9 +214,7 @@ class UserProductController extends Controller
         }
     }
 
-    /**
-     * Check if request has any image files
-     */
+    // Check if request has any image files
     private function hasImageFiles(Request $request): bool
     {
         return $request->hasFile('main_image') 
@@ -242,14 +222,7 @@ class UserProductController extends Controller
             || $request->hasFile('layout_images');
     }
 
-    /**
-     * Get list of user products
-     * GET /api/user_product?status={Draft|Publish}
-     */
-    /**
-     * Get list of user products
-     * GET /api/user_product?status={Draft|Publish}&q={keyword}&per_page={limit}
-     */
+    // GET /api/user_product?status={active|draft}&q={keyword}&per_page={limit} - Ambil daftar produk user
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -322,11 +295,7 @@ class UserProductController extends Controller
         ]);
     }
 
-    /**
-     * Store a new product (Draft or Publish)
-     * POST /api/user_product
-     * Content-Type: multipart/form-data
-     */
+    // POST /api/user_product - Simpan produk baru (draft/publish)
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), $this->getValidationRules());
@@ -424,10 +393,7 @@ class UserProductController extends Controller
         }
     }
 
-    /**
-     * Get product detail for edit
-     * GET /api/user_product/{product_id}
-     */
+    // GET /api/user_product/{product_id} - Ambil detail produk user
     public function show(string $productId): JsonResponse
     {
         $product = MsProduct::where('product_id', $productId)->first();
@@ -498,11 +464,7 @@ class UserProductController extends Controller
         ]);
     }
 
-    /**
-     * Update product
-     * PUT /api/user_product/{product_id}
-     * Content-Type: multipart/form-data
-     */
+    // PUT /api/user_product/{product_id} - Update data produk user
     public function update(Request $request, string $productId): JsonResponse
     {
         $product = MsProduct::where('product_id', $productId)->first();
@@ -615,10 +577,7 @@ class UserProductController extends Controller
         }
     }
 
-    /**
-     * Publish product (change status from Draft to Publish)
-     * PUT /api/user_product/{product_id}/publish
-     */
+    // PUT /api/user_product/{product_id}/publish - Publish produk draft
     public function publish(Request $request, string $productId): JsonResponse
     {
         $product = MsProduct::where('product_id', $productId)->first();
@@ -716,10 +675,7 @@ class UserProductController extends Controller
         }
     }
 
-    /**
-     * Delete a specific product image
-     * DELETE /api/user_product/images/{image_id}
-     */
+    // DELETE /api/user_product/images/{image_id} - Hapus gambar produk specific
     public function deleteImage(int $imageId): JsonResponse
     {
         $image = MsProductImage::find($imageId);
@@ -751,9 +707,7 @@ class UserProductController extends Controller
         }
     }
 
-    /**
-     * Convert storage path to public URL
-     */
+    // Convert storage path to public URL
     private function publicUrl(?string $path): ?string
     {
         if (!$path) {

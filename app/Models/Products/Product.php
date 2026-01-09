@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 use App\Support\ProductCache;
 
+// Model Product - Representasi tabel products
 class Product extends Model
 {
     use HasFactory;

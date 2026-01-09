@@ -5,6 +5,7 @@ namespace App\Models\Core;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model Permission - Representasi tabel permissions
 class Permission extends Model
 {
     use HasFactory;

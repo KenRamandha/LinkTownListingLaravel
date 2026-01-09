@@ -20,10 +20,7 @@ use Throwable;
 
 class UserProductPublicController extends Controller
 {
-    /**
-     * Home endpoint - Get latest products
-     * GET /api/user-products/home
-     */
+    // GET /api/user-products/home - Ambil produk user terbaru untuk home
     public function home(Request $request)
     {
         $validated = Validator::validate($request->all(), [
@@ -50,10 +47,7 @@ class UserProductPublicController extends Controller
         }
     }
 
-    /**
-     * Search filters endpoint - Get available filter options
-     * GET /api/user-products/search/filters
-     */
+    // GET /api/user-products/search/filters - Ambil opsi filter pencarian
     public function searchFilters()
     {
         try {
@@ -119,10 +113,7 @@ class UserProductPublicController extends Controller
         }
     }
 
-    /**
-     * Top products by city
-     * GET /api/cities/{cityId}/user-products/top
-     */
+    // GET /api/cities/{cityId}/user-products/top - Ambil top produk user berdasarkan kota
     public function topByCity(Request $request, int $cityId)
     {
         $validated = Validator::validate($request->all(), [
@@ -157,10 +148,7 @@ class UserProductPublicController extends Controller
         }
     }
 
-    /**
-     * Show product detail
-     * GET /api/user-products/{productId}
-     */
+    // GET /api/user-products/{productId} - Ambil detail produk user publik
     public function show(string $productId)
     {
         try {
@@ -192,10 +180,7 @@ class UserProductPublicController extends Controller
         }
     }
 
-    /**
-     * Search products
-     * GET /api/user-products/search
-     */
+    // GET /api/user-products/search - Cari produk user dengan filter
     public function search(Request $request)
     {
         $validated = Validator::validate($request->all(), [
@@ -464,16 +449,13 @@ class UserProductPublicController extends Controller
             ]);
         } catch (Throwable $e) {
             report($e);
-
             return $this->fail('Gagal memuat daftar produk', 500, 'SERVER_ERROR');
         }
     }
 
-    /**
-     * Build home payload with latest products
-     * Returns same structure as ProductController for Flutter compatibility
-     * Separates properties (CONDITION-1/Baru) from listings (other conditions)
-     */
+    // Build home payload with latest products
+    // Returns same structure as ProductController for Flutter compatibility
+    // Separates properties (CONDITION-1/Baru) from listings (other conditions)
     private function buildHomePayload(?string $listingType, int $limit): array
     {
         // Properties: Condition = CONDITION-1 (Baru)
@@ -496,10 +478,8 @@ class UserProductPublicController extends Controller
         ];
     }
 
-    /**
-     * Build product detail payload
-     * Matches ProductController format for Flutter compatibility
-     */
+    // Build product detail payload
+    // Matches ProductController format for Flutter compatibility
     private function buildProductDetail(MsProduct $product): array
     {
         $location = $product->locations->first();
@@ -607,9 +587,7 @@ class UserProductPublicController extends Controller
         ];
     }
 
-    /**
-     * Base query for home and top by city
-     */
+    // Base query for home and top by city
     private function homeBaseQuery(?string $listingType = null, ?int $cityId = null): QueryBuilder
     {
         $query = DB::table('tr_product as a')
@@ -676,9 +654,7 @@ class UserProductPublicController extends Controller
         return $query;
     }
 
-    /**
-     * Base query for search
-     */
+    // Base query for search
     private function searchBaseQuery(
         array $listingTypes = [],
         array $productTypes = [],
@@ -753,10 +729,8 @@ class UserProductPublicController extends Controller
         return $query;
     }
 
-    /**
-     * Format home results
-     * Matches ProductController format for Flutter compatibility
-     */
+    // Format home results
+    // Matches ProductController format for Flutter compatibility
     private function formatHomeResults(Collection $items): array
     {
         return $items
@@ -863,9 +837,7 @@ class UserProductPublicController extends Controller
             ->all();
     }
 
-    /**
-     * Format images collection
-     */
+    // Format images collection
     private function formatImages(Collection $images): array
     {
         return $images
@@ -882,12 +854,10 @@ class UserProductPublicController extends Controller
             ->all();
     }
 
-    /**
-     * Parse specifications - supports both formats:
-     * 1. ID-based: {"SPEC-1":"200"} -> joins with tr_product_detail
-     * 2. Direct array: [{"key":"Luas Tanah","value":"90m²","icon":"..."}] -> returns as-is
-     * 3. Double-encoded: "[{\"key\":\"...\"}]" -> decode twice
-     */
+    // Parse specifications - supports both formats:
+    // 1. ID-based: {"SPEC-1":"200"} -> joins with tr_product_detail
+    // 2. Direct array: [{"key":"Luas Tanah","value":"90m²","icon":"..."}] -> returns as-is
+    // 3. Double-encoded: "[{\"key\":\"...\"}]" -> decode twice
     private function parseSpecifications(?string $specificationJson): array
     {
         if (empty($specificationJson)) {
@@ -935,12 +905,10 @@ class UserProductPublicController extends Controller
         return $specifications;
     }
 
-    /**
-     * Parse facilities - supports both formats:
-     * 1. ID-based: ["FACILITY-1","FACILITY-5"] -> joins with tr_product_detail
-     * 2. Direct array: [{"name":"Kolam Renang","icon":"..."}] -> returns as-is (with key mapping)
-     * 3. Double-encoded: "[{\"key\":\"...\"}]" -> decode twice
-     */
+    // Parse facilities - supports both formats:
+    // 1. ID-based: ["FACILITY-1","FACILITY-5"] -> joins with tr_product_detail
+    // 2. Direct array: [{"name":"Kolam Renang","icon":"..."}] -> returns as-is (with key mapping)
+    // 3. Double-encoded: "[{\"key\":\"...\"}]" -> decode twice
     private function parseFacilities(?string $facilityJson): array
     {
         if (empty($facilityJson)) {
@@ -990,13 +958,11 @@ class UserProductPublicController extends Controller
         return $facilities;
     }
 
-    /**
-     * Format specifications for detail endpoint (matches ProductController)
-     * Supports both formats:
-     * 1. ID-based: {"SPEC-1":"200"} -> joins with tr_product_detail
-     * 2. Direct array: [{"key":"Luas Tanah","value":"90m²","icon":"..."}] -> returns as-is
-     * 3. Double-encoded: "[{\"key\":\"...\"}]" -> decode twice
-     */
+    // Format specifications for detail endpoint (matches ProductController)
+    // Supports both formats:
+    // 1. ID-based: {"SPEC-1":"200"} -> joins with tr_product_detail
+    // 2. Direct array: [{"key":"Luas Tanah","value":"90m²","icon":"..."}] -> returns as-is
+    // 3. Double-encoded: "[{\"key\":\"...\"}]" -> decode twice
     private function formatSpecificationsForDetail(?string $specificationJson): array
     {
         if (empty($specificationJson)) {
@@ -1045,9 +1011,7 @@ class UserProductPublicController extends Controller
         return $specifications;
     }
 
-    /**
-     * Format specifications for detail endpoint (matches ProductController)
-     */
+    // Format specifications for detail endpoint (matches ProductController)
     private function formatSpecificationsDetail(?array $specifications): array
     {
         if (empty($specifications)) {
@@ -1058,9 +1022,7 @@ class UserProductPublicController extends Controller
         return array_values($specifications);
     }
 
-    /**
-     * Format images for detail endpoint (matches ProductController)
-     */
+    // Format images for detail endpoint (matches ProductController)
     private function formatImagesDetail(Collection $images): array
     {
         return $images
@@ -1077,9 +1039,7 @@ class UserProductPublicController extends Controller
             ->all();
     }
 
-    /**
-     * Format layouts for detail endpoint (matches ProductController)
-     */
+    // Format layouts for detail endpoint (matches ProductController)
     private function formatLayoutsDetail(Collection $layouts): array
     {
         return $layouts
@@ -1096,9 +1056,7 @@ class UserProductPublicController extends Controller
             ->all();
     }
 
-    /**
-     * Format locations for detail endpoint (matches ProductController)
-     */
+    // Format locations for detail endpoint (matches ProductController)
     private function formatLocationsDetail(Collection $locations): array
     {
         return $locations
@@ -1118,9 +1076,7 @@ class UserProductPublicController extends Controller
             ->all();
     }
 
-    /**
-     * Normalize JSON fields in payload
-     */
+    // Normalize JSON fields in payload
     private function normalizeJsonFields(array $payload): array
     {
         if (array_key_exists('specification', $payload) && $payload['specification'] !== null) {
@@ -1136,10 +1092,8 @@ class UserProductPublicController extends Controller
         return $payload;
     }
 
-    /**
-     * Normalize specifications payload for listing endpoints (home, search, topByCity)
-     * Matches ProductController format
-     */
+    // Normalize specifications payload for listing endpoints (home, search, topByCity)
+    // Matches ProductController format
     private function normalizeSpecificationsPayload(array $payload): array
     {
         // Decode specification field if exists
@@ -1162,9 +1116,7 @@ class UserProductPublicController extends Controller
         return $payload;
     }
 
-    /**
-     * Convert storage path to public URL
-     */
+    // Convert storage path to public URL
     private function publicUrl(?string $path): ?string
     {
         if (!$path) {
@@ -1176,9 +1128,7 @@ class UserProductPublicController extends Controller
         return asset($path);
     }
 
-    /**
-     * Sanitize array values
-     */
+    // Sanitize array values
     private function sanitizeArray(array $input): array
     {
         $result = [];
@@ -1190,9 +1140,7 @@ class UserProductPublicController extends Controller
         return array_values(array_unique($result));
     }
 
-    /**
-     * Sanitize integer array values
-     */
+    // Sanitize integer array values
     private function sanitizeIntArray(array $input): array
     {
         $result = [];

@@ -6,6 +6,7 @@ use App\Models\Core\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model Visit - Representasi tabel kunjungan
 class Visit extends Model
 {
     use HasFactory;

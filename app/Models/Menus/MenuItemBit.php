@@ -5,6 +5,7 @@ namespace App\Models\Menus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model MenuItemBit - Representasi tabel menu_item_bits
 class MenuItemBit extends Model
 {
     use HasFactory;

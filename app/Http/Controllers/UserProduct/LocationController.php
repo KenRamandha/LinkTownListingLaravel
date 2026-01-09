@@ -11,10 +11,7 @@ use Illuminate\Http\Request;
 
 class LocationController extends Controller
 {
-    /**
-     * Get list of provinces (stored in 'cities' table)
-     * GET /api/locations/provinces
-     */
+    // GET /api/locations/provinces - Ambil daftar provinsi
     public function provinces(): JsonResponse
     {
         // Table 'cities' actually stores Provinces
@@ -28,10 +25,7 @@ class LocationController extends Controller
         ]);
     }
 
-    /**
-     * Get list of cities/kabupaten (stored in 'places' table)
-     * GET /api/locations/cities?province_id={id}
-     */
+    // GET /api/locations/cities?province_id={id} - Ambil daftar kota berdasarkan provinsi
     public function cities(Request $request): JsonResponse
     {
         // 'province_id' parameter refers to 'cities.id'
@@ -56,10 +50,7 @@ class LocationController extends Controller
         ]);
     }
 
-    /**
-     * Get list of areas/kecamatan (stored in 'ms_areas' table)
-     * GET /api/locations/areas?city_id={id}
-     */
+    // GET /api/locations/areas?city_id={id} - Ambil daftar area/kecamatan berdasarkan kota
     public function areas(Request $request): JsonResponse
     {
         // 'city_id' parameter refers to 'places.id'

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Support\ProductCache;
 
+// Model ProductLayout - Representasi tabel product_layouts
 class ProductLayout extends Model
 {
     use HasFactory;

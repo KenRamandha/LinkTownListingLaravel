@@ -11,6 +11,7 @@ use Throwable;
 
 class MenuAdminController extends Controller
 {
+    // GET /api/menus - Ambil daftar menu admin
     public function menus(Request $r)
     {
         try {
@@ -23,6 +24,8 @@ class MenuAdminController extends Controller
             return $this->fail('Gagal memuat menus', 500, 'SERVER_ERROR');
         }
     }
+
+    // POST /api/menus - Buat menu baru
     public function createMenu(Request $r)
     {
         try {
@@ -39,6 +42,8 @@ class MenuAdminController extends Controller
             return $this->fail('Gagal membuat menu', 500, 'SERVER_ERROR');
         }
     }
+
+    // PUT /api/menus/{id} - Update menu
     public function updateMenu(Request $r, string $id)
     {
         try {
@@ -58,6 +63,8 @@ class MenuAdminController extends Controller
             return $this->fail('Gagal memperbarui menu', 500, 'SERVER_ERROR');
         }
     }
+
+    // DELETE /api/menus/{id} - Hapus menu
     public function deleteMenu(Request $r, string $id)
     {
         try {
@@ -73,6 +80,8 @@ class MenuAdminController extends Controller
         }
     }
 
+
+    // GET /api/menus/{menuId}/items - Ambil item menu
     public function items(Request $r, string $menuId)
     {
         try {
@@ -84,6 +93,8 @@ class MenuAdminController extends Controller
             return $this->fail('Gagal memuat menu items', 500, 'SERVER_ERROR');
         }
     }
+
+    // POST /api/menus/{menuId}/items - Buat item menu baru
     public function createItem(Request $r, string $menuId)
     {
         try {
@@ -120,6 +131,8 @@ class MenuAdminController extends Controller
             return $this->fail('Gagal membuat menu item', 500, 'SERVER_ERROR');
         }
     }
+
+    // PUT /api/menus/items/{itemId} - Update item menu
     public function updateItem(Request $r, string $itemId)
     {
         try {
@@ -154,6 +167,8 @@ class MenuAdminController extends Controller
             return $this->fail('Gagal memperbarui menu item', 500, 'SERVER_ERROR');
         }
     }
+
+    // DELETE /api/menus/items/{itemId} - Hapus item menu
     public function deleteItem(Request $r, string $itemId)
     {
         try {

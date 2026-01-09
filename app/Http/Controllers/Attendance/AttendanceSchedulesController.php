@@ -12,6 +12,7 @@ use Throwable;
 
 class AttendanceSchedulesController extends Controller
 {
+    // GET /api/attendance/schedules - Ambil daftar jadwal
     public function index(Request $r)
     {
         try {
@@ -38,6 +39,8 @@ class AttendanceSchedulesController extends Controller
         }
     }
 
+
+    // POST /api/attendance/schedules - Buat jadwal baru
     public function store(Request $r)
     {
         try {
@@ -152,6 +155,8 @@ class AttendanceSchedulesController extends Controller
         }
     }
 
+
+    // PUT /api/attendance/schedules/{id} - Update jadwal
     public function update(Request $r, string $id)
     {
         try {
@@ -264,6 +269,8 @@ class AttendanceSchedulesController extends Controller
         }
     }
 
+
+    // DELETE /api/attendance/schedules/{id} - Hapus jadwal
     public function destroy(Request $r, string $id)
     {
         try {

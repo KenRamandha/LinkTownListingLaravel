@@ -5,6 +5,7 @@ namespace App\Models\Menus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model RoleMenuToken - Representasi tabel role_menu_tokens
 class RoleMenuToken extends Model
 {
     use HasFactory;

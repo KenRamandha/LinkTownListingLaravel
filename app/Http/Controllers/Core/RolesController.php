@@ -11,6 +11,7 @@ use Throwable;
 
 class RolesController extends Controller
 {
+    // GET /api/core/roles - Ambil daftar role
     public function index(Request $r)
     {
         try {
@@ -23,6 +24,8 @@ class RolesController extends Controller
             return $this->fail('Gagal memuat roles', 500, 'SERVER_ERROR');
         }
     }
+
+    // POST /api/core/roles - Buat role baru
     public function store(Request $r)
     {
         try {
@@ -39,6 +42,8 @@ class RolesController extends Controller
             return $this->fail('Gagal membuat role', 500, 'SERVER_ERROR');
         }
     }
+
+    // PUT /api/core/roles/{id} - Update role
     public function update(Request $r, string $id)
     {
         try {
@@ -58,6 +63,8 @@ class RolesController extends Controller
             return $this->fail('Gagal memperbarui role', 500, 'SERVER_ERROR');
         }
     }
+
+    // DELETE /api/core/roles/{id} - Hapus role
     public function destroy(Request $r, string $id)
     {
         try {
@@ -72,6 +79,8 @@ class RolesController extends Controller
             return $this->fail('Gagal menghapus role', 500, 'SERVER_ERROR');
         }
     }
+
+    // GET /api/core/roles/{id}/permissions - Ambil permission dari role tertentu
     public function permissions(Request $r, string $id)
     {
         try {
@@ -93,6 +102,8 @@ class RolesController extends Controller
             return $this->fail('Gagal memuat role permissions', 500, 'SERVER_ERROR');
         }
     }
+
+    // PUT /api/core/roles/{id}/permissions - Set permission untuk role
     public function setPermissions(Request $r, string $id)
     {
         try {

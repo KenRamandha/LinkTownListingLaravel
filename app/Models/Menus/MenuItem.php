@@ -6,6 +6,7 @@ use App\Models\Core\Feature;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// Model MenuItem - Representasi tabel menu_items
 class MenuItem extends Model
 {
     use HasFactory;

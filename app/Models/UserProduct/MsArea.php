@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+// Model MsArea - Representasi tabel ms_areas
 class MsArea extends Model
 {
     use SoftDeletes;
@@ -26,25 +27,16 @@ class MsArea extends Model
         'is_active' => 'boolean',
     ];
 
-    /**
-     * Scope to filter only active areas
-     */
     public function scopeActive($query)
     {
         return $query->where('is_active', 1);
     }
 
-    /**
-     * Scope to order by display order
-     */
     public function scopeOrdered($query)
     {
         return $query->orderBy('order');
     }
 
-    /**
-     * Get the place that owns the area
-     */
     public function place(): BelongsTo
     {
         return $this->belongsTo(Place::class);

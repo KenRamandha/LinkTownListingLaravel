@@ -9,12 +9,7 @@ use Illuminate\Http\Request;
 
 class MasterController extends Controller
 {
-    /**
-     * Get product details for dropdowns
-     * GET /api/master/product-details?type={type}
-     * 
-     * Types: SPEC, FACILITY, CONDITION, PROPERTY_TYPE, LEGAL, LABEL, LISTING_TYPE
-     */
+    // GET /api/master/product-details?type={type} - Ambil data master berdasarkan tipe
     public function productDetails(Request $request): JsonResponse
     {
         $type = strtoupper($request->query('type', ''));

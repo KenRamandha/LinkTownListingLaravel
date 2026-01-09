@@ -12,6 +12,7 @@ use Throwable;
 
 class AttendanceShiftsController extends Controller
 {
+    // GET /api/attendance/shifts - Ambil daftar shift
     public function index(Request $r)
     {
         try {
@@ -28,6 +29,8 @@ class AttendanceShiftsController extends Controller
         }
     }
 
+
+    // POST /api/attendance/shifts - Buat shift baru
     public function store(Request $r)
     {
         try {
@@ -61,6 +64,8 @@ class AttendanceShiftsController extends Controller
         }
     }
 
+
+    // PUT /api/attendance/shifts/{id} - Update shift
     public function update(Request $r, string $id)
     {
         try {
@@ -89,6 +94,8 @@ class AttendanceShiftsController extends Controller
         }
     }
 
+
+    // DELETE /api/attendance/shifts/{id} - Hapus shift
     public function destroy(Request $r, string $id)
     {
         try {
