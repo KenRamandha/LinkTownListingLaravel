@@ -20,7 +20,7 @@ use Throwable;
 
 class UserProductPublicController extends Controller
 {
-    // GET /api/user-products/home - Ambil produk user terbaru untuk home
+    // Ambil produk user terbaru untuk halaman home
     public function home(Request $request)
     {
         $validated = Validator::validate($request->all(), [
@@ -47,36 +47,32 @@ class UserProductPublicController extends Controller
         }
     }
 
-    // GET /api/user-products/search/filters - Ambil opsi filter pencarian
+    // Ambil opsi filter untuk pencarian produk user
     public function searchFilters()
     {
         try {
-            // 1. Property Statuses (mapped from listing types descriptions)
             $propertyStatuses = MsProductDetail::listingTypes()
                 ->orderBy('description')
                 ->pluck('description')
                 ->values()
                 ->all();
 
-            // 2. Product Names (mapped from property types)
-            // Matches 'product_names' structure in ProductController
             $productNames = MsProductDetail::propertyTypes()
                 ->orderBy('description')
-                ->get(['id', 'detail_id', 'description', 'icon']) // Fetch 'id' as well
+                ->get(['id', 'detail_id', 'description', 'icon'])
                 ->map(function ($type) {
                     return [
-                        'id'    => $type->id, // Use integer ID
+                        'id'    => $type->id,
                         'name'  => $type->description,
-                        'slug'  => \Illuminate\Support\Str::slug($type->description), // Generate slug
+                        'slug'  => \Illuminate\Support\Str::slug($type->description),
                         'title' => $type->description,
                         'color' => null,
-                        'icon'  => $type->icon, // Keep icon as it might be useful
+                        'icon'  => $type->icon,
                     ];
                 })
                 ->values()
                 ->all();
 
-            // 3. Product Types (slugs from conditions)
             $productTypes = MsProductDetail::conditions()
                 ->orderBy('description')
                 ->get(['description'])
@@ -85,7 +81,6 @@ class UserProductPublicController extends Controller
                 })
                 ->all();
 
-            // 4. Price Range (Unified min/max)
             $priceAggregate = MsProduct::published()
                 ->selectRaw('MIN(selling_price) as min_selling, MAX(selling_price) as max_selling, MIN(rental_price) as min_rental, MAX(rental_price) as max_rental')
                 ->first();
@@ -113,7 +108,7 @@ class UserProductPublicController extends Controller
         }
     }
 
-    // GET /api/cities/{cityId}/user-products/top - Ambil top produk user berdasarkan kota
+    // Ambil top produk user berdasarkan kota
     public function topByCity(Request $request, int $cityId)
     {
         $validated = Validator::validate($request->all(), [
@@ -148,7 +143,7 @@ class UserProductPublicController extends Controller
         }
     }
 
-    // GET /api/user-products/{productId} - Ambil detail produk user publik
+    // Ambil detail produk user untuk public
     public function show(string $productId)
     {
         try {
@@ -180,23 +175,19 @@ class UserProductPublicController extends Controller
         }
     }
 
-    // GET /api/user-products/search - Cari produk user dengan filter
+    // Cari produk user dengan filter
     public function search(Request $request)
     {
         $validated = Validator::validate($request->all(), [
             'q'                 => ['nullable', 'string'],
-            'property_statuses' => ['nullable', 'array'], // Formerly listing_types
+            'property_statuses' => ['nullable', 'array'],
             'property_statuses.*' => ['string'],
-            'product_type_ids'  => ['nullable', 'array'], // Formerly product_types
-            'product_type_ids.*' => ['integer'], // Validated as integer to match ProductController
-            // 'conditions'    => ['nullable', 'array'], // Removed as not in ProductController
-            // 'conditions.*'  => ['string'],
+            'product_type_ids'  => ['nullable', 'array'],
+            'product_type_ids.*' => ['integer'],
             'city_ids'          => ['nullable', 'array'],
             'city_ids.*'        => ['integer'],
             'place_ids'         => ['nullable', 'array'],
             'place_ids.*'       => ['integer'],
-            // 'area_ids'      => ['nullable', 'array'], // Removed as not in ProductController
-            // 'area_ids.*'    => ['integer'],
             'min_price'         => ['nullable', 'numeric', 'min:0'],
             'max_price'         => ['nullable', 'numeric', 'min:0'],
             'page'              => ['nullable', 'integer', 'min:1'],
@@ -210,21 +201,29 @@ class UserProductPublicController extends Controller
         $perPage  = (int) ($validated['per_page'] ?? 12);
         $sort     = $validated['sort'] ?? 'relevance';
 
-        // Map property_statuses (descriptions) to listing_type IDs AND include original descriptions for mixed data support
         $propertyStatuses = $this->sanitizeArray($validated['property_statuses'] ?? []);
         $listingTypes = [];
+        
         if (!empty($propertyStatuses)) {
-            $listingTypeIds = DB::table('tr_product_detail')
-                ->where('detail_type', 'LISTING_TYPE')
-                ->whereIn('description', $propertyStatuses)
-                ->pluck('detail_id')
-                ->all();
+            $hasSemua = in_array('Semua', $propertyStatuses, true);
+            $otherStatuses = array_filter($propertyStatuses, fn($status) => $status !== 'Semua');
             
-            // Filter by both the ID (LISTING-TYPE-X) and the Description (Jual/Sewa) to handle mixed data
-            $listingTypes = array_unique(array_merge($listingTypeIds, $propertyStatuses));
+            if (!empty($otherStatuses)) {
+                $listingTypeIds = DB::table('tr_product_detail')
+                    ->where('detail_type', 'LISTING_TYPE')
+                    ->whereIn('description', $otherStatuses)
+                    ->pluck('detail_id')
+                    ->all();
+                
+                $listingTypes = array_unique(array_merge($listingTypeIds, $otherStatuses));
+            }
+            
+            if ($hasSemua) {
+                $listingTypes[] = 'LISTING-TYPE-3';
+                $listingTypes = array_unique($listingTypes);
+            }
         }
 
-        // Map product_type_ids (integers) to detail_ids (strings) AND descriptions for mixed data support
         $inputProductTypeIds = $this->sanitizeIntArray($validated['product_type_ids'] ?? []);
         $queryProductTypeIds = [];
         if (!empty($inputProductTypeIds)) {
@@ -237,20 +236,19 @@ class UserProductPublicController extends Controller
             $ptIds = $productTypes->pluck('detail_id')->all();
             $ptDescs = $productTypes->pluck('description')->all();
 
-            // Filter by both ID (PROPERTY-TYPE-X) and Description (Rumah)
             $queryProductTypeIds = array_unique(array_merge($ptIds, $ptDescs));
         }
         
-        $conditions = []; // Default empty
+        $conditions = []; 
         
         $cityIds      = $this->sanitizeIntArray($validated['city_ids'] ?? []);
         $placeIds     = $this->sanitizeIntArray($validated['place_ids'] ?? []);
-        $areaIds      = []; // Default empty
+        $areaIds      = []; 
 
         try {
             $query = $this->searchBaseQuery(
                 $listingTypes,
-                $queryProductTypeIds, // Pass mapped IDs and descriptions
+                $queryProductTypeIds, 
                 $conditions,
                 $cityIds,
                 $placeIds,
@@ -324,17 +322,14 @@ class UserProductPublicController extends Controller
                 ->map(function ($row) use ($imagesByProductId) {
                     $payload = (array) $row;
 
-                    // Use integer product_id like ProductController
                     $productId = is_numeric($row->product_id) ? (int) $row->product_id : $row->product_id;
                     $payload['product_id'] = $productId;
                     $payload['id']         = $productId;
                     
-                    // Use 'price' field (prioritize selling_price, fallback to rental_price)
                     $payload['price'] = is_null($row->selling_price) 
                         ? (is_null($row->rental_price) ? null : (float) $row->rental_price)
                         : (float) $row->selling_price;
 
-                    // Use 'featured_image_url' as array like ProductController search
                     $urls = $imagesByProductId[$productId] ?? null;
                     if (is_array($urls) && !empty($urls)) {
                         $payload['featured_image_url'] = array_values($urls);
@@ -342,13 +337,10 @@ class UserProductPublicController extends Controller
                         $payload['featured_image_url'] = [];
                     }
 
-                    // Add specifications array (supports both formats)
                     $payload['specifications'] = $this->parseSpecifications($row->specification);
 
-                    // Add facilities array (supports both formats)
                     $payload['facilities'] = $this->parseFacilities($row->facility);
 
-                    // Add label description (join with tr_product_detail)
                     if (!empty($row->label)) {
                         $labelDetail = DB::table('tr_product_detail')
                             ->where('detail_id', $row->label)
@@ -359,7 +351,6 @@ class UserProductPublicController extends Controller
                         $payload['label'] = null;
                     }
 
-                    // Add legal description (join with tr_product_detail)
                     if (!empty($row->legal)) {
                         $legalDetail = DB::table('tr_product_detail')
                             ->where('detail_id', $row->legal)
@@ -370,34 +361,25 @@ class UserProductPublicController extends Controller
                         $payload['legal'] = null;
                     }
 
-                    // Add user-friendly fields for Flutter UI
-                    $payload['hero_subtitle']     = $row->label_description ?? '-'; // From joined label description
-                    $payload['place_name']        = $row->place_name ?? null;      // From joined places table
-                    $payload['city_name']         = $row->city_name ?? null;       // From joined cities table
+                    $payload['hero_subtitle']     = $row->label_description ?? '-';
+                    $payload['place_name']        = $row->place_name ?? null;
+                    $payload['city_name']         = $row->city_name ?? null;
                     $payload['address']           = $row->address ?? null;
-                    // $payload['city_state']     = $row->city_state ?? null; // Removed as column missing
-                    $payload['contact_name']      = $row->user_name ?? 'Sales';    // Default to 'Sales'
-                    $payload['product_type_name'] = $row->product_type_description ?? 'Rumah'; // Default to 'Rumah'
+                    $payload['contact_name']      = $row->user_name ?? 'Sales';
+                    $payload['product_type_name'] = $row->product_type_description ?? 'Rumah';
                     $payload['property_status']   = $row->listing_type_description ?? null;
                     
-                    // Add agent details for Flutter UI
                     $payload['namawa']            = $row->user_name ?? 'Sales';
                     $payload['nowa']              = $row->user_phone ?? null;
-                    $payload['agent_photo_url']   = $row->agent_photo_url ?? null; // Nullable
-                    $payload['agency_name']       = $row->agency_name_db ?? 'Agen Independen'; // Default if null
+                    $payload['agent_photo_url']   = $row->agent_photo_url ?? null;
+                    $payload['agency_name']       = $row->agency_name_db ?? 'Agen Independen';
                     
-                    // Normalize specifications (same as ProductController)
                     $payload = $this->normalizeSpecificationsPayload($payload);
-                    /*
-                     * Remove fields that ProductController doesn't return
-                     * But keep the new ones we just added!
-                     */
                     unset(
                         $payload['selling_price'], 
                         $payload['rental_price'],
                         $payload['specification'],
                         $payload['facility'],
-                        // 'province', 'city', 'area' are now mapped to names or used as IDs
                         $payload['province'],
                         $payload['city'],
                         $payload['area'],
@@ -410,7 +392,6 @@ class UserProductPublicController extends Controller
                         $payload['listing_type_description'],
                         $payload['product_type_description'],
                         $payload['condition_description'],
-                        // Clean up temporary join fields if you don't want them in final JSON output
                         $payload['label_description'],
                         $payload['user_name'],
                         $payload['user_phone'],
@@ -437,13 +418,13 @@ class UserProductPublicController extends Controller
                 'debug_bindings' => $query->getBindings(),
                 'filters' => [
                     'q'                 => $search,
-                    'property_statuses' => $propertyStatuses, // matched ProductController
+                    'property_statuses' => $propertyStatuses,
                     'city_ids'          => $cityIds,
                     'min_price'         => $minPrice,
                     'max_price'         => $maxPrice,
                     'per_page'          => $perPage,
                     'sort'              => $sort,
-                    'product_type_ids'  => $inputProductTypeIds, // Return input IDs (integers)
+                    'product_type_ids'  => $inputProductTypeIds,
                     'place_ids'         => $placeIds,
                 ],
             ]);
@@ -453,19 +434,17 @@ class UserProductPublicController extends Controller
         }
     }
 
-    // Build home payload with latest products
-    // Returns same structure as ProductController for Flutter compatibility
-    // Separates properties (CONDITION-1/Baru) from listings (other conditions)
+    // Build payload untuk home dengan produk terbaru
     private function buildHomePayload(?string $listingType, int $limit): array
     {
-        // Properties: Condition = CONDITION-1 (Baru)
+        // Produk baru (CONDITION-1)
         $latestProperties = $this->homeBaseQuery($listingType)
             ->where('a.condition', 'CONDITION-1')
             ->orderByDesc('a.created_at')
             ->limit($limit)
             ->get();
 
-        // Listings: Condition != CONDITION-1 (Bekas, dll)
+        // Produk bekas (selain CONDITION-1)
         $latestListings = $this->homeBaseQuery($listingType)
             ->where('a.condition', '!=', 'CONDITION-1')
             ->orderByDesc('a.created_at')
@@ -478,15 +457,12 @@ class UserProductPublicController extends Controller
         ];
     }
 
-    // Build product detail payload
-    // Matches ProductController format for Flutter compatibility
+    // Build payload detail produk untuk public
     private function buildProductDetail(MsProduct $product): array
     {
         $location = $product->locations->first();
         
-        // Get place and city information
-        // Note: MsProduct uses different field mapping than Product
-        // province -> City, city -> Place, area -> MsArea
+        // Ambil informasi place dan city dari relasi produk
         $city = null;
         $place = null;
         $area = null;
@@ -503,43 +479,42 @@ class UserProductPublicController extends Controller
             $area = MsArea::find($product->area);
         }
 
-        // Map MsProduct fields to ProductController format
         return [
             'id'                 => is_numeric($product->product_id) ? (int) $product->product_id : $product->product_id,
-            'slug'               => null, // MsProduct doesn't have slug
+            'slug'               => null,
             'title'              => $product->title,
-            'code'               => $product->product_id, // Use product_id as code
-            'meta_description'   => null, // MsProduct doesn't have meta fields
+            'code'               => $product->product_id,
+            'meta_description'   => null,
             'meta_title'         => null,
-            'around'             => [], // MsProduct doesn't have around
-            'promo'              => null, // MsProduct doesn't have promo
+            'around'             => [],
+            'promo'              => null,
             'description'        => $product->description,
-            'benefits'           => [], // MsProduct doesn't have benefits
-            'tags'               => [], // MsProduct doesn't have tags
+            'benefits'           => [],
+            'tags'               => [],
             'price'              => is_null($product->selling_price) 
                 ? (is_null($product->rental_price) ? null : (float) $product->rental_price)
                 : (float) $product->selling_price,
-            'cicilan_per_bulan'  => null, // MsProduct doesn't have cicilan
+            'cicilan_per_bulan'  => null,
             'label'              => $product->labelDetail->description ?? $product->label,
-            'label_color'        => null, // MsProduct doesn't have label_color
+            'label_color'        => null,
             'product_type_id'    => $product->product_type,
-            'link'               => null, // MsProduct doesn't have link
-            'order'              => null, // MsProduct doesn't have order
+            'link'               => null,
+            'order'              => null,
             'status'             => $product->status,
-            'image_location'     => null, // MsProduct doesn't have image_location
-            'youtube'            => null, // MsProduct doesn't have youtube
-            'hero_title'         => null, // MsProduct doesn't have hero fields
+            'image_location'     => null,
+            'youtube'            => null,
+            'hero_title'         => null,
             'hero_list'          => [],
             'price_header'       => [],
             'hero_subtitle'      => $product->labelDetail->description ?? $product->label ?? '-',
-            'developer_id'       => null, // MsProduct has developer name, not ID
+            'developer_id'       => null,
             'tenant'             => [],
             'featured_partner'   => false,
             'project_id'         => null,
             'user_id'            => $product->created_by,
             'property_status'    => $product->listingTypeDetail->description ?? $product->listing_type,
             'nowa'               => $product->user_phone,
-            'namawa'             => $product->user_name ?? 'Sales', // Fallback to 'Sales'
+            'namawa'             => $product->user_name ?? 'Sales',
             'agent_photo_url'    => $product->creator->profile->avatar_url ?? null,
             'agency_name'        => $product->creator->company->name ?? 'Agen Independen',
             'rental_terms'       => $product->rental_terms,
@@ -587,7 +562,7 @@ class UserProductPublicController extends Controller
         ];
     }
 
-    // Base query for home and top by city
+    // Base query untuk home dan top by city
     private function homeBaseQuery(?string $listingType = null, ?int $cityId = null): QueryBuilder
     {
         $query = DB::table('tr_product as a')
@@ -601,12 +576,12 @@ class UserProductPublicController extends Controller
                 'a.listing_type',
                 'a.product_type',
                 'a.condition',
-                'a.specification',  // Add specification field
-                'a.facility',       // Add facility field (JSON array)
-                'a.label',          // Add label field (ID)
-                'a.legal',          // Add legal field (ID)
-                'a.user_name',      // Add for namawa
-                'a.user_phone',     // Add for nowa
+                'a.specification',
+                'a.facility',
+                'a.label',
+                'a.legal',
+                'a.user_name',
+                'a.user_phone',
                 'a.created_at',
                 'ltd.description as listing_type_description',
                 'ltd.icon as listing_type_icon',
@@ -625,7 +600,6 @@ class UserProductPublicController extends Controller
                     ->limit(1);
             }, 'main_image')
             ->selectSub(function ($sub) {
-                // Count photos for photos_count field
                 $sub->from('tr_product_image as img')
                     ->selectRaw('COUNT(*)')
                     ->whereColumn('img.product_id', 'a.product_id')
@@ -654,7 +628,7 @@ class UserProductPublicController extends Controller
         return $query;
     }
 
-    // Base query for search
+    // Base query untuk search dengan filter
     private function searchBaseQuery(
         array $listingTypes = [],
         array $productTypes = [],
@@ -679,11 +653,10 @@ class UserProductPublicController extends Controller
                 'a.area',
                 'a.specification',
                 'a.facility',
-                'a.label',          // Add label field
-                'a.legal',          // Add legal field
-                'a.user_name',      // Add user_name for contact_name
-                'a.user_phone',     // Add user_phone for nowa
-                // 'a.city_state',  // REMOVED: Column does not exist in tr_product
+                'a.label',
+                'a.legal',
+                'a.user_name',
+                'a.user_phone',
                 'a.created_at',
                 'ltd.description as listing_type_description',
                 'ltd.icon as listing_type_icon',
@@ -691,11 +664,11 @@ class UserProductPublicController extends Controller
                 'ptd.icon as product_type_icon',
                 'cd.description as condition_description',
                 'cd.icon as condition_icon',
-                'cities.name as city_name', // Join cities for city_name
-                'places.name as place_name', // Join places for place_name
-                'ld.description as label_description', // Join label for hero_subtitle
-                'up.avatar_url as agent_photo_url',    // Join user_profiles for agent photo
-                'com.name as agency_name_db',          // Join companies for agency name
+                'cities.name as city_name',
+                'places.name as place_name',
+                'ld.description as label_description',
+                'up.avatar_url as agent_photo_url',
+                'com.name as agency_name_db',
             ])
             ->leftJoin('tr_product_detail as ltd', function($join) {
                 $join->on('a.listing_type', '=', 'ltd.detail_id')
@@ -709,17 +682,29 @@ class UserProductPublicController extends Controller
                 $join->on('a.condition', '=', 'cd.detail_id')
                      ->where('cd.detail_type', '=', 'CONDITION');
             })
-            ->leftJoin('tr_product_detail as ld', function($join) { // Join for Label
+            ->leftJoin('tr_product_detail as ld', function($join) {
                 $join->on('a.label', '=', 'ld.detail_id')
                      ->where('ld.detail_type', '=', 'LABEL');
             })
-            ->leftJoin('cities', 'a.province', '=', 'cities.id') // Join cities table
-            ->leftJoin('places', 'a.city', '=', 'places.id')     // Join places table
-            ->leftJoin('users', 'a.created_by', '=', 'users.id') // Join users table
-            ->leftJoin('user_profiles as up', 'users.id', '=', 'up.user_id') // Join user_profiles table
-            ->leftJoin('companies as com', 'users.company_id', '=', 'com.id') // Join companies table
+            ->leftJoin('cities', 'a.province', '=', 'cities.id')
+            ->leftJoin('places', 'a.city', '=', 'places.id')
+            ->leftJoin('users', 'a.created_by', '=', 'users.id')
+            ->leftJoin('user_profiles as up', 'users.id', '=', 'up.user_id')
+            ->leftJoin('companies as com', 'users.company_id', '=', 'com.id')
             ->where('a.status', 'Publish')
-            ->when(!empty($listingTypes), fn(QueryBuilder $query) => $query->whereIn('a.listing_type', $listingTypes))
+            ->when(!empty($listingTypes), function(QueryBuilder $query) use ($listingTypes) {
+                $expandedListingTypes = $listingTypes;
+                
+                $hasType1 = in_array('LISTING-TYPE-1', $listingTypes, true) || in_array('Jual', $listingTypes, true);
+                $hasType2 = in_array('LISTING-TYPE-2', $listingTypes, true) || in_array('Sewa', $listingTypes, true);
+                
+                if ($hasType1 || $hasType2) {
+                    $expandedListingTypes[] = 'LISTING-TYPE-3';
+                    $expandedListingTypes = array_unique($expandedListingTypes);
+                }
+                
+                return $query->whereIn('a.listing_type', $expandedListingTypes);
+            })
             ->when(!empty($productTypes), fn(QueryBuilder $query) => $query->whereIn('a.product_type', $productTypes))
             ->when(!empty($conditions), fn(QueryBuilder $query) => $query->whereIn('a.condition', $conditions))
             ->when(!empty($cityIds), fn(QueryBuilder $query) => $query->whereIn('a.province', $cityIds))
@@ -729,68 +714,52 @@ class UserProductPublicController extends Controller
         return $query;
     }
 
-    // Format home results
-    // Matches ProductController format for Flutter compatibility
+    // Format hasil home untuk response
     private function formatHomeResults(Collection $items): array
     {
         return $items
             ->map(function ($row) {
                 $payload = (array) $row;
 
-                // Use integer product_id like ProductController
                 $productId = is_numeric($row->product_id) ? (int) $row->product_id : $row->product_id;
                 $payload['product_id'] = $productId;
                 $payload['id']         = $productId;
                 
-                // Use 'price' field (prioritize selling_price, fallback to rental_price)
                 $payload['price'] = is_null($row->selling_price) 
                     ? (is_null($row->rental_price) ? null : (float) $row->rental_price)
                     : (float) $row->selling_price;
 
-                // Add property_status (from listing_type_description)
                 $payload['property_status'] = $row->listing_type_description ?? null;
 
-                // Add nowa and namawa
                 $payload['nowa'] = $row->user_phone ?? null;
                 $payload['namawa'] = $row->user_name ?? null;
 
-                // Keep address
                 $payload['address'] = $row->address ?? null;
 
-                // Add product_type_name (from product_type_description)
                 $payload['product_type_name'] = $row->product_type_description ?? null;
 
-                // Add description (keep it)
                 $payload['description'] = $row->description ?? null;
 
-                // Add hero_subtitle (null for MsProduct)
                 $payload['hero_subtitle'] = null;
 
-                // Add place_name, city_name, city_state
                 $payload['place_name'] = $row->place_name ?? null;
                 $payload['city_name'] = $row->city_name ?? null;
                 $payload['city_state'] = $row->city_state ?? null;
 
-                // Add foto (original field before featured_image_url)
                 $payload['foto'] = $row->main_image ?? null;
 
-                // Add photos_count
                 $payload['photos_count'] = (int) ($row->photos_count ?? 0);
 
-                // Use 'featured_image_url' like ProductController (single string, not array)
                 if (array_key_exists('main_image', $payload) && !empty($payload['main_image'])) {
                 $payload['featured_image_url'] = $this->publicUrl($payload['main_image']);
                 } else {
                     $payload['featured_image_url'] = null;
                 }
 
-                // Add specifications array (supports both formats)
                 $payload['specifications'] = $this->parseSpecifications($row->specification);
 
-                // Add facilities array (supports both formats)
                 $payload['facilities'] = $this->parseFacilities($row->facility);
 
-                // Add label description (join with tr_product_detail)
                 if (!empty($row->label)) {
                     $labelDetail = DB::table('tr_product_detail')
                         ->where('detail_id', $row->label)
@@ -801,7 +770,6 @@ class UserProductPublicController extends Controller
                     $payload['label'] = null;
                 }
 
-                // Add legal description (join with tr_product_detail)
                 if (!empty($row->legal)) {
                     $legalDetail = DB::table('tr_product_detail')
                         ->where('detail_id', $row->legal)
@@ -812,7 +780,6 @@ class UserProductPublicController extends Controller
                     $payload['legal'] = null;
                 }
 
-                // Remove fields that ProductController doesn't return in home
                 unset(
                     $payload['selling_price'], 
                     $payload['rental_price'], 
@@ -837,7 +804,7 @@ class UserProductPublicController extends Controller
             ->all();
     }
 
-    // Format images collection
+    // Format koleksi images untuk response
     private function formatImages(Collection $images): array
     {
         return $images
@@ -854,10 +821,7 @@ class UserProductPublicController extends Controller
             ->all();
     }
 
-    // Parse specifications - supports both formats:
-    // 1. ID-based: {"SPEC-1":"200"} -> joins with tr_product_detail
-    // 2. Direct array: [{"key":"Luas Tanah","value":"90m²","icon":"..."}] -> returns as-is
-    // 3. Double-encoded: "[{\"key\":\"...\"}]" -> decode twice
+    // Parse JSON specifications menjadi array dengan support multiple format
     private function parseSpecifications(?string $specificationJson): array
     {
         if (empty($specificationJson)) {
@@ -866,7 +830,7 @@ class UserProductPublicController extends Controller
 
         $decoded = json_decode($specificationJson, true);
         
-        // Check if first decode resulted in a string (double-encoded JSON)
+        // Cek jika double-encoded JSON
         if (is_string($decoded)) {
             $decoded = json_decode($decoded, true);
         }
@@ -875,13 +839,12 @@ class UserProductPublicController extends Controller
             return [];
         }
 
-        // Check if it's already in the final format (has 'key', 'value', 'icon')
+        // Cek jika sudah dalam format final
         if (isset($decoded[0]) && is_array($decoded[0]) && isset($decoded[0]['key'])) {
-            // Already in final format, return as-is
             return $decoded;
         }
 
-        // It's ID-based format, need to join with tr_product_detail
+        // Format ID-based, join dengan tr_product_detail
         $specIds = array_keys($decoded);
         
         $specDetails = DB::table('tr_product_detail')
@@ -905,10 +868,7 @@ class UserProductPublicController extends Controller
         return $specifications;
     }
 
-    // Parse facilities - supports both formats:
-    // 1. ID-based: ["FACILITY-1","FACILITY-5"] -> joins with tr_product_detail
-    // 2. Direct array: [{"name":"Kolam Renang","icon":"..."}] -> returns as-is (with key mapping)
-    // 3. Double-encoded: "[{\"key\":\"...\"}]" -> decode twice
+    // Parse JSON facilities menjadi array dengan support multiple format
     private function parseFacilities(?string $facilityJson): array
     {
         if (empty($facilityJson)) {
@@ -917,7 +877,6 @@ class UserProductPublicController extends Controller
 
         $decoded = json_decode($facilityJson, true);
         
-        // Check if first decode resulted in a string (double-encoded JSON)
         if (is_string($decoded)) {
             $decoded = json_decode($decoded, true);
         }
@@ -926,9 +885,7 @@ class UserProductPublicController extends Controller
             return [];
         }
 
-        // Check if it's already in object format (has 'key' or 'name')
         if (isset($decoded[0]) && is_array($decoded[0])) {
-            // Map 'key' to 'name' if needed for consistency
             return array_map(function($item) {
                 return [
                     'name' => $item['name'] ?? $item['key'] ?? '',
@@ -937,7 +894,6 @@ class UserProductPublicController extends Controller
             }, $decoded);
         }
 
-        // It's ID-based format (array of strings), need to join with tr_product_detail
         $facilityDetails = DB::table('tr_product_detail')
             ->whereIn('detail_id', $decoded)
             ->where('detail_type', 'FACILITY')
@@ -958,11 +914,7 @@ class UserProductPublicController extends Controller
         return $facilities;
     }
 
-    // Format specifications for detail endpoint (matches ProductController)
-    // Supports both formats:
-    // 1. ID-based: {"SPEC-1":"200"} -> joins with tr_product_detail
-    // 2. Direct array: [{"key":"Luas Tanah","value":"90m²","icon":"..."}] -> returns as-is
-    // 3. Double-encoded: "[{\"key\":\"...\"}]" -> decode twice
+    // Format specifications untuk detail endpoint dengan support multiple format
     private function formatSpecificationsForDetail(?string $specificationJson): array
     {
         if (empty($specificationJson)) {
@@ -971,7 +923,6 @@ class UserProductPublicController extends Controller
 
         $decoded = json_decode($specificationJson, true);
         
-        // Check if first decode resulted in a string (double-encoded JSON)
         if (is_string($decoded)) {
             $decoded = json_decode($decoded, true);
         }
@@ -980,16 +931,12 @@ class UserProductPublicController extends Controller
             return [];
         }
 
-        // Check if it's already in the final format (has 'key', 'value', 'icon')
         if (isset($decoded[0]) && is_array($decoded[0]) && isset($decoded[0]['key'])) {
-            // Already in final format, return as-is
             return $decoded;
         }
 
-        // It's ID-based format, need to join with tr_product_detail
         $specIds = array_keys($decoded);
         
-        // Get spec details from tr_product_detail
         $specDetails = DB::table('tr_product_detail')
             ->whereIn('detail_id', $specIds)
             ->where('detail_type', 'SPEC')
@@ -1011,18 +958,17 @@ class UserProductPublicController extends Controller
         return $specifications;
     }
 
-    // Format specifications for detail endpoint (matches ProductController)
+    // Format array specifications untuk detail endpoint
     private function formatSpecificationsDetail(?array $specifications): array
     {
         if (empty($specifications)) {
             return [];
         }
 
-        // Flatten array if nested
         return array_values($specifications);
     }
 
-    // Format images for detail endpoint (matches ProductController)
+    // Format images untuk detail endpoint
     private function formatImagesDetail(Collection $images): array
     {
         return $images
@@ -1030,24 +976,24 @@ class UserProductPublicController extends Controller
                 return [
                     'id'         => $image->id,
                     'url'        => $this->publicUrl($image->url),
-                    'featured'   => (bool) $image->main, // Map 'main' to 'featured'
-                    'created_at' => optional($image->created_at)?->toDateTimeString(),
-                    'updated_at' => null, // MsProductImage doesn't have updated_at
+                    'featured'   => (bool) $image->main,
+                    'created_at' => optional($image->created_at)->toDateTimeString(),
+                    'updated_at' => null,
                 ];
             })
             ->values()
             ->all();
     }
 
-    // Format layouts for detail endpoint (matches ProductController)
+    // Format layouts untuk detail endpoint
     private function formatLayoutsDetail(Collection $layouts): array
     {
         return $layouts
             ->map(function ($layout) {
                 return [
                     'id'          => $layout->id,
-                    'image'       => $this->publicUrl($layout->url), // Use 'url' field
-                    'description' => null, // MsProductImage doesn't have description
+                    'image'       => $this->publicUrl($layout->url),
+                    'description' => null,
                     'created_at'  => optional($layout->created_at)?->toDateTimeString(),
                     'updated_at'  => null,
                 ];
@@ -1056,27 +1002,27 @@ class UserProductPublicController extends Controller
             ->all();
     }
 
-    // Format locations for detail endpoint (matches ProductController)
+    // Format locations untuk detail endpoint
     private function formatLocationsDetail(Collection $locations): array
     {
         return $locations
             ->map(function ($location) {
                 return [
                     'id'         => $location->id,
-                    'address'    => null, // MsProductLocation doesn't have address
+                    'address'    => null,
                     'latitude'   => $location->latitude,
                     'longitude'  => $location->longitude,
-                    'place_id'   => null, // MsProductLocation doesn't have place_id
+                    'place_id'   => null,
                     'product_id' => $location->product_id,
                     'created_at' => optional($location->created_at)?->toDateTimeString(),
-                    'updated_at' => optional($location->update_at)?->toDateTimeString(), // Note: typo in model
+                    'updated_at' => optional($location->update_at)->toDateTimeString(),
                 ];
             })
             ->values()
             ->all();
     }
 
-    // Normalize JSON fields in payload
+    // Normalize field JSON dalam payload
     private function normalizeJsonFields(array $payload): array
     {
         if (array_key_exists('specification', $payload) && $payload['specification'] !== null) {
@@ -1092,11 +1038,9 @@ class UserProductPublicController extends Controller
         return $payload;
     }
 
-    // Normalize specifications payload for listing endpoints (home, search, topByCity)
-    // Matches ProductController format
+    // Normalize payload specifications untuk listing endpoints
     private function normalizeSpecificationsPayload(array $payload): array
     {
-        // Decode specification field if exists
         if (array_key_exists('specification', $payload) && $payload['specification'] !== null) {
             $decoded = json_decode($payload['specification'], true);
             $payload['specifications'] = is_array($decoded) ? array_values($decoded) : [];
@@ -1104,19 +1048,17 @@ class UserProductPublicController extends Controller
             $payload['specifications'] = [];
         }
 
-        // Decode facility field if exists
         if (array_key_exists('facility', $payload) && $payload['facility'] !== null) {
             $decoded = json_decode($payload['facility'], true);
             $payload['facilities'] = is_array($decoded) ? array_values($decoded) : [];
         }
 
-        // Remove original fields
         unset($payload['specification'], $payload['facility']);
 
         return $payload;
     }
 
-    // Convert storage path to public URL
+    // Convert path storage menjadi public URL
     private function publicUrl(?string $path): ?string
     {
         if (!$path) {
@@ -1128,7 +1070,7 @@ class UserProductPublicController extends Controller
         return asset($path);
     }
 
-    // Sanitize array values
+    // Sanitize dan clean array values
     private function sanitizeArray(array $input): array
     {
         $result = [];
@@ -1140,7 +1082,7 @@ class UserProductPublicController extends Controller
         return array_values(array_unique($result));
     }
 
-    // Sanitize integer array values
+    // Sanitize dan convert array values ke integer
     private function sanitizeIntArray(array $input): array
     {
         $result = [];
