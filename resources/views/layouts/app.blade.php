@@ -17,6 +17,8 @@
             <main class="flex-1 overflow-y-auto">
                 @yield('content')
             </main>
+
+            @include('layouts.footer')
         </div>
     </div>
 
