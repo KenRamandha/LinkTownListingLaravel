@@ -15,10 +15,18 @@ use Throwable;
 
 class AuthController extends Controller
 {
-    private const ACCESS_TOKEN_NAME  = 'access';
+    private const ACCESS_TOKEN_NAME = 'access';
     private const REFRESH_TOKEN_NAME = 'refresh';
     private const PLAIN_TOKEN_PREFIX = 'plain_token:';
     private const DEFAULT_TOKEN_TTL_DAYS = 7;
+
+    public function showLoginForm()
+    {
+        if (Auth::check()) {
+            return redirect()->intended(route('home'));
+        }
+        return view('auth.login');
+    }
 
     // POST /api/auth/login - Login user dengan phone dan password, return access & refresh token
     public function login(Request $r)
@@ -61,7 +69,7 @@ class AuthController extends Controller
             );
 
             return $this->ok([
-                'token_type'   => 'Bearer',
+                'token_type' => 'Bearer',
                 'access_token' => $accessToken,
                 'refresh_token' => $refreshToken,
                 'user' => [
@@ -126,8 +134,8 @@ class AuthController extends Controller
             );
 
             return $this->ok([
-                'token_type'    => 'Bearer',
-                'access_token'  => $accessToken,
+                'token_type' => 'Bearer',
+                'access_token' => $accessToken,
                 'refresh_token' => $refreshToken,
             ], 'Token refreshed');
         } catch (Throwable $e) {
