@@ -24,26 +24,37 @@ $(document).ready(function () {
         columns: [
             {
                 data: null,
-                responsivePriority: 1,
-                className: "dtr-control",
                 render: function (data) {
                     const name = data.name || "Unknown";
                     const initials = name.substring(0, 2).toUpperCase();
+                    let avatarHtml = "";
+                    if (data.avatar_url) {
+                        avatarHtml = `
+                            <img src="${data.avatar_url}" 
+                                class="h-11 w-11 rounded-2xl object-cover shadow-lg shadow-orange-100 border-2 border-white" 
+                                onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'h-11 w-11 rounded-2xl bg-gradient-to-br from-[#FB9300] to-[#343F56] flex items-center justify-center text-white font-bold\'>${initials}</div>';">
+                        `;
+                    } else {
+                        avatarHtml = `
+                            <div class="h-11 w-11 rounded-2xl bg-gradient-to-br from-[#FB9300] to-[#343F56] flex items-center justify-center text-white font-bold shadow-lg shadow-orange-100 uppercase">
+                                ${initials}
+                            </div>
+                        `;
+                    }
+
                     return `
-                    <div class="flex items-center gap-4">
-                        <div class="h-11 w-11 rounded-2xl bg-gradient-to-br from-[#FB9300] to-[#343F56] flex items-center justify-center text-white font-bold shadow-lg shadow-orange-100 uppercase">
-                            ${initials}
+                        <div class="flex items-center gap-4">
+                            ${avatarHtml}
+                            <div>
+                                <h4 class="text-sm font-bold text-[#343F56] leading-tight group-hover:text-[#FB9300] transition-colors">${name}</h4>
+                                <p class="text-xs text-gray-500 mt-0.5 font-medium">${data.email}</p>
+                            </div>
                         </div>
-                        <div>
-                            <h4 class="text-sm font-bold text-[#343F56] leading-tight group-hover:text-[#FB9300] transition-colors">${name}</h4>
-                            <p class="text-xs text-gray-500 mt-0.5 font-medium">${data.email}</p>
-                        </div>
-                    </div>
-                `;
+                    `;
                 },
             },
             {
-                data: "role_name",
+                data: "position",
                 render: function (data) {
                     return `<span class="px-3 py-1 rounded-lg text-[10px] font-extrabold border bg-gray-50 text-[#343F56] border-gray-100 uppercase tracking-wider">${
                         data || "CLIENT"
@@ -70,6 +81,8 @@ $(document).ready(function () {
             },
             {
                 data: null,
+                responsivePriority: 1,
+                className: "dtr-control",
                 render: function (data) {
                     const joined = moment(data.created_at).format(
                         "DD MMM YYYY"
@@ -137,21 +150,37 @@ $(document).ready(function () {
 });
 
 window.openEditModal = function (user) {
-    console.log(user);
+    window.location.href = `/users/${user.id}/edit`;
 };
 
 window.deleteUser = function (id) {
     Swal.fire({
         title: "Are you sure?",
         text: "You won't be able to revert this!",
-        // icon: "warning",
+        icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#FB9300",
         cancelButtonColor: "#343F56",
         confirmButtonText: "Yes, delete it!",
     }).then((result) => {
         if (result.isConfirmed) {
-            alert("Deleted: " + id);
+            $.ajax({
+                url: `/users/${id}`,
+                type: "DELETE",
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr("content"),
+                },
+                success: function (response) {
+                    window.toast("success", response.message);
+                    $("#userTable").DataTable().ajax.reload();
+                },
+                error: function (xhr) {
+                    let message = xhr.responseJSON
+                        ? xhr.responseJSON.message
+                        : "Something went wrong";
+                    window.toast("error", message);
+                },
+            });
         }
     });
 };

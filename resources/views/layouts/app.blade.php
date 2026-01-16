@@ -26,7 +26,7 @@
 
             @include('layouts.header')
 
-            <main class="flex-1 overflow-y-auto custom-scrollbar relative">
+            <main class="flex-1 overflow-y-auto custom-scrollbar">
                 <div class="py-6">
                     @yield('content')
                 </div>

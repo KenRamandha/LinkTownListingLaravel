@@ -7,7 +7,7 @@
     <div class="p-8 lg:p-12">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
             <div>
-                <h1 class="text-3xl font-extrabold text-[#343F56] tracking-tight">Users</h1>
+                <h1 class="text-3xl font-extrabold text-[#343F56] tracking-tight">Users APPS</h1>
                 <p class="text-gray-500 mt-2 text-sm font-medium">Create, manage and audit all team members within your
                     organization.</p>
             </div>

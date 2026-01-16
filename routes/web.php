@@ -27,7 +27,11 @@ Route::middleware('auth')->group(function () {
     // user
     Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
     Route::get('/users/add', [UserManagementController::class, 'add'])->name('users.add');
-    Route::get('/user/departements/{company_id}', [UserManagementController::class, 'getDepartementsByCompany'])->name('user.departements');
+    Route::post('/users', [UserManagementController::class, 'store'])->name('users.store');
+    Route::get('/users/{id}/edit', [UserManagementController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{id}', [UserManagementController::class, 'update'])->name('users.update');
+    Route::delete('/users/{id}', [UserManagementController::class, 'destroy'])->name('users.destroy');
+    Route::get('/user/departments/{company_id}', [UserManagementController::class, 'getDepartmentsByCompany'])->name('user.departments');
     Route::get('/users/list', [UserManagementController::class, 'getList'])->name('users.list');
 
     // roles
