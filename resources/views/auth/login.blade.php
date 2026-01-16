@@ -117,7 +117,7 @@
                     class="absolute inset-0 border-4 border-brandOrange rounded-full border-t-transparent animate-spin">
                 </div>
             </div>
-            <p class="mt-5 text-brandBlue font-bold tracking-wide">Securing Session...</p>
+            <p class="mt-5 text-brandBlue font-bold tracking-wide">Authenticating...</p>
         </div>
     </div>
 
