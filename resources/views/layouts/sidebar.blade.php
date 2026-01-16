@@ -9,11 +9,11 @@
     <div class="flex items-center h-16 px-6 shrink-0 border-b border-gray-50">
         <div class="flex items-center gap-3 overflow-hidden">
             <div
-                class="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-blue-200">
+                class="h-8 w-8 bg-[#FB9300] rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-orange-200">
                 <span class="text-white font-bold text-lg">L</span>
             </div>
             <span x-show="sidebarDesktop" x-transition.opacity
-                class="text-xl font-bold tracking-tight text-gray-900 whitespace-nowrap">LinkTown</span>
+                class="text-xl font-bold tracking-tight text-[#343F56] whitespace-nowrap">LinkTown</span>
         </div>
     </div>
 
@@ -27,13 +27,13 @@
             @if(empty($item['children']))
                 {{-- Single Menu --}}
                 <a href="{{ $item['route'] ? route($item['route']) : '#' }}"
-                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group {{ $isCurrent ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900' }}"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group {{ $isCurrent ? 'bg-orange-50 text-[#FB9300]' : 'text-gray-500 hover:bg-gray-50 hover:text-[#343F56]' }}"
                     :class="sidebarDesktop ? 'justify-start' : 'justify-center'"
                     :title="!sidebarDesktop ? '{{ $item['name'] }}' : ''">
 
                     @if(!empty($item['icon']))
                         <i
-                            class="{{ $item['icon'] }} w-5 h-5 shrink-0 {{ $isCurrent ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600' }}"></i>
+                            class="{{ $item['icon'] }} w-5 h-5 shrink-0 {{ $isCurrent ? 'text-[#FB9300]' : 'text-gray-400 group-hover:text-[#343F56]' }}"></i>
                     @endif
                     <span x-show="sidebarDesktop" x-transition.opacity class="whitespace-nowrap">{{ $item['name'] }}</span>
                 </a>
@@ -42,19 +42,19 @@
                 <div x-data="{ open: {{ $hasActiveChild ? 'true' : 'false' }} }" class="space-y-1">
                     <button type="button"
                         @click="if(!sidebarDesktop) { sidebarDesktop = true; open = true; } else { open = !open }"
-                        class="w-full flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all group {{ $hasActiveChild ? 'text-blue-600 bg-gray-50/50' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900' }}"
+                        class="w-full flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all group {{ $hasActiveChild ? 'text-[#FB9300] bg-orange-50/50' : 'text-gray-500 hover:bg-gray-50 hover:text-[#343F56]' }}"
                         :class="sidebarDesktop ? 'justify-between' : 'justify-center'">
                         <div class="flex items-center gap-3">
                             @if(!empty($item['icon']))
                                 <i
-                                    class="{{ $item['icon'] }} w-5 h-5 shrink-0 {{ $hasActiveChild ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600' }}"></i>
+                                    class="{{ $item['icon'] }} w-5 h-5 shrink-0 {{ $hasActiveChild ? 'text-[#FB9300]' : 'text-gray-400 group-hover:text-[#343F56]' }}"></i>
                             @endif
                             <span x-show="sidebarDesktop" x-transition.opacity
                                 class="whitespace-nowrap">{{ $item['name'] }}</span>
                         </div>
                         <svg x-show="sidebarDesktop" :class="open ? 'rotate-90' : ''"
-                            class="w-4 h-4 transition-transform text-gray-400" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
+                            class="w-4 h-4 transition-transform text-gray-400 group-hover:text-[#343F56]" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                         </svg>
                     </button>
@@ -62,7 +62,7 @@
                     <div x-show="open && sidebarDesktop" x-collapse class="pl-11 space-y-1">
                         @foreach($item['children'] as $child)
                             <a href="{{ $child['route'] ? route($child['route']) : '#' }}"
-                                class="block px-3 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs($child['route']) ? 'text-blue-600' : 'text-gray-400 hover:text-gray-900' }}">
+                                class="block px-3 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs($child['route']) ? 'text-[#FB9300]' : 'text-gray-400 hover:text-[#343F56]' }}">
                                 {{ $child['name'] }}
                             </a>
                         @endforeach
@@ -78,7 +78,7 @@
 
     <div class="hidden lg:flex border-t border-gray-50 p-4">
         <button @click="sidebarDesktop = !sidebarDesktop"
-            class="w-full flex items-center justify-center p-2 rounded-xl bg-gray-50 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all">
+            class="w-full flex items-center justify-center p-2 rounded-xl bg-gray-50 text-gray-400 hover:text-[#FB9300] hover:bg-orange-50 transition-all">
             <svg :class="!sidebarDesktop ? 'rotate-180' : ''" class="w-5 h-5 transition-transform duration-500"
                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

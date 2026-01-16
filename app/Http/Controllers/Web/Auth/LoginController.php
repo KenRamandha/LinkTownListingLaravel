@@ -51,6 +51,13 @@ class LoginController extends Controller
             Auth::login($user, $request->boolean('remember'));
             $request->session()->regenerate();
 
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => 'Login successful',
+                    'redirect' => route('home'),
+                ]);
+            }
+
             return redirect()->intended(route('home'));
         }
 
@@ -66,7 +73,7 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect('/')->with('success', 'Logout Berhasil! Sampai jumpa lagi.');
     }
 
     private function normalizePhone(string $phone): string

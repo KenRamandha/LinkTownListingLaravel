@@ -39,7 +39,8 @@
                 <label class="block text-sm font-semibold text-gray-700 mb-1">
                     Company
                 </label>
-                <select id="company_id" name="company_id" class="custom-input select2">
+                <select id="company_id" name="company_id" class="custom-input select2"
+                    data-route-departments="{{ route('user.departements', ':id') }}">
                     <option value="">Pilih Company...</option>
                     @foreach($companies as $company)
                         <option value="{{ $company->id }}">
