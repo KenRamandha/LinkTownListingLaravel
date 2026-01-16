@@ -108,8 +108,14 @@ class UserManagementController extends Controller
                 ->lockForUpdate()
                 ->first();
 
-            $lastUserNumber = $lastUser ? (int) substr($lastUser->id, -3) : 0;
-            $userId = 'USR-' . $companyCode . '-' . str_pad($lastUserNumber + 1, 3, '0', STR_PAD_LEFT);
+            $counter = $lastUser ? (int) substr($lastUser->id, -3) : 0;
+
+            do {
+                $counter++;
+                $userId = 'USR-' . $companyCode . '-' . str_pad($counter, 3, '0', STR_PAD_LEFT);
+                $exists = DB::table('users')->where('id', $userId)->exists();
+            } while ($exists);
+
 
             $lastProfile = DB::table('user_profiles')
                 ->where('employee_code', 'like', 'EMP-' . $companyCode . '-%')
@@ -117,8 +123,13 @@ class UserManagementController extends Controller
                 ->lockForUpdate()
                 ->first();
 
-            $lastEmpNumber = $lastProfile ? (int) substr($lastProfile->employee_code, -3) : 0;
-            $employeeCode = 'EMP-' . $companyCode . '-' . str_pad($lastEmpNumber + 1, 3, '0', STR_PAD_LEFT);
+            $empCounter = $lastProfile ? (int) substr($lastProfile->employee_code, -3) : 0;
+
+            do {
+                $empCounter++;
+                $employeeCode = 'EMP-' . $companyCode . '-' . str_pad($empCounter, 3, '0', STR_PAD_LEFT);
+                $empExists = DB::table('user_profiles')->where('employee_code', $employeeCode)->exists();
+            } while ($empExists);
 
             DB::table('users')->insert([
                 'id' => $userId,
@@ -219,7 +230,6 @@ class UserManagementController extends Controller
             ], 500);
         }
     }
-
     public function edit($id)
     {
         $user = DB::table('users')

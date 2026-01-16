@@ -66,7 +66,7 @@
                     Employee Code
                 </label>
                 <input type="text" name="employee_code" value="{{ $user->employee_code ?? '' }}" class="custom-input"
-                    placeholder="EMP001">
+                    placeholder="EMP001" readonly>
             </div>
 
             <div>
