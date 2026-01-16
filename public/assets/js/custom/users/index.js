@@ -81,8 +81,8 @@ $(document).ready(function () {
             },
             {
                 data: null,
-                responsivePriority: 1,
-                className: "dtr-control",
+                // responsivePriority: 1,
+                // className: "dtr-control",
                 render: function (data) {
                     const joined = moment(data.created_at).format(
                         "DD MMM YYYY"
