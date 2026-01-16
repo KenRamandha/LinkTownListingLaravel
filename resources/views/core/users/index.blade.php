@@ -37,14 +37,15 @@
         </div>
 
         <div class="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-[#343F56]/5 overflow-hidden">
-            <table id="userTable" class="w-full text-left border-collapse" data-route-list="{{ route('users.list') }}">
+            <table id="userTable" class="table w-full text-left border-collapse"
+                data-route-list="{{ route('users.list') }}">
                 <thead>
                     <tr>
                         <th class="px-8">Profile</th>
                         <th>Position</th>
                         <th>Status</th>
                         <th>Activity</th>
-                        <th class="text-right px-8">Options</th>
+                        <th>Options</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">

@@ -121,12 +121,15 @@
                     Status
                 </label>
                 <select name="status" class="custom-input select2">
-                    <option value="active" {{ (isset($user) && $user->status == 'active') ? 'selected' : '' }}>Active
+                    <option value="archived" {{ (isset($user) && $user->status == 'archived') ? 'selected' : '' }}>
+                        Archived
                     </option>
                     <option value="suspended" {{ (isset($user) && $user->status == 'suspended') ? 'selected' : '' }}>
-                        Suspended</option>
-                    <option value="archived" {{ (isset($user) && $user->status == 'archived') ? 'selected' : '' }}>
-                        Archived</option>
+                        Suspended
+                    </option>
+                    <option value="active" {{ (isset($user) && $user->status == 'active') ? 'selected' : '' }}>
+                        Active
+                    </option>
                 </select>
             </div>
 
