@@ -495,7 +495,7 @@ class UserProductPublicController extends Controller
                 ? (is_null($product->rental_price) ? null : (float) $product->rental_price)
                 : (float) $product->selling_price,
             'cicilan_per_bulan'  => null,
-            'label'              => $product->labelDetail->description ?? $product->label,
+            'label'              => $this->formatLabelsArray($product),
             'label_color'        => null,
             'product_type_id'    => $product->product_type,
             'link'               => null,
@@ -1056,6 +1056,22 @@ class UserProductPublicController extends Controller
         unset($payload['specification'], $payload['facility']);
 
         return $payload;
+    }
+
+    // Format labels array dengan description dari tr_product_detail
+    private function formatLabelsArray(MsProduct $product): ?array
+    {
+        $labels = $product->label_array;
+        if (empty($labels)) {
+            return null;
+        }
+        
+        $labelDetails = DB::table('tr_product_detail')
+            ->whereIn('detail_id', $labels)
+            ->where('detail_type', 'LABEL')
+            ->pluck('description', 'detail_id');
+        
+        return collect($labels)->map(fn($id) => $labelDetails[$id] ?? $id)->values()->all();
     }
 
     // Convert path storage menjadi public URL

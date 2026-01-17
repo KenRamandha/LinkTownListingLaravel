@@ -142,10 +142,43 @@ class MsProduct extends Model
                     ->where('detail_type', 'CONDITION');
     }
 
+    /**
+     * Get label as array with backward compatibility for existing string data.
+     * - New data: stored as JSON array -> returns as array
+     * - Old data: stored as string "LABEL-TYPE-1" -> returns as ["LABEL-TYPE-1"]
+     */
+    public function getLabelArrayAttribute(): ?array
+    {
+        if (empty($this->label)) {
+            return null;
+        }
+        
+        // Try to decode as JSON first (new format)
+        $decoded = json_decode($this->label, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+        
+        // Fallback: single string (old format) -> wrap in array
+        return [$this->label];
+    }
+
+    // Relasi label tunggal (untuk backward compatibility)
     public function labelDetail(): HasOne
     {
         return $this->hasOne(MsProductDetail::class, 'detail_id', 'label')
                     ->where('detail_type', 'LABEL');
+    }
+
+    /**
+     * Get all label details for multiple labels.
+     */
+    public function labelDetails()
+    {
+        $labels = $this->label_array ?? [];
+        return MsProductDetail::whereIn('detail_id', $labels)
+            ->where('detail_type', 'LABEL')
+            ->get();
     }
 
     public function creator()
