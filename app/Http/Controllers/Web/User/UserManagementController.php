@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web\User;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class UserManagementController extends Controller
 {
@@ -70,8 +71,9 @@ class UserManagementController extends Controller
         $marriage_stats = DB::table('ms_user_status')->where('stat_type', 'NIKAH')->get();
         $tax_stats = DB::table('ms_user_status')->where('stat_type', 'PAJAK')->get();
         $employee_stats = DB::table('ms_user_status')->where('stat_type', 'KARYAWAN')->get();
+        $doc_types = DB::table('ms_user_status')->where('stat_type', 'DOCUMENT')->get();
 
-        return view('core.users.add', compact('menus', 'roles', 'companies', 'banks', 'marriage_stats', 'tax_stats', 'employee_stats'));
+        return view('core.users.add', compact('menus', 'roles', 'companies', 'banks', 'marriage_stats', 'tax_stats', 'employee_stats', 'doc_types'));
     }
 
     public function store(Request $request)
@@ -246,13 +248,15 @@ class UserManagementController extends Controller
         $menus = $this->getMenuTree();
         $roles = DB::table('roles')->select('id', 'name')->get();
         $companies = DB::table('companies')->select('id', 'name', 'code')->get();
+        $shifts = DB::table('shifts')->where('company_id', $user->company_id)->select('id', 'name')->get();
 
         $banks = DB::table('ms_user_status')->where('stat_type', 'BANK')->get();
         $marriage_stats = DB::table('ms_user_status')->where('stat_type', 'NIKAH')->get();
         $tax_stats = DB::table('ms_user_status')->where('stat_type', 'PAJAK')->get();
         $employee_stats = DB::table('ms_user_status')->where('stat_type', 'KARYAWAN')->get();
+        $doc_types = DB::table('ms_user_status')->where('stat_type', 'DOCUMENT')->get();
 
-        return view('core.users.add', compact('user', 'menus', 'roles', 'companies', 'banks', 'marriage_stats', 'tax_stats', 'employee_stats'));
+        return view('core.users.add', compact('user', 'menus', 'roles', 'companies', 'banks', 'marriage_stats', 'tax_stats', 'employee_stats', 'shifts', 'doc_types'));
     }
 
     public function update(Request $request, $id)
@@ -373,6 +377,7 @@ class UserManagementController extends Controller
     {
         try {
             DB::beginTransaction();
+            DB::table('shifts_mapping')->where('user_id', $id)->delete();
             DB::table('user_roles')->where('user_id', $id)->delete();
             DB::table('user_profiles')->where('user_id', $id)->delete();
             DB::table('users')->where('id', $id)->delete();
@@ -382,6 +387,95 @@ class UserManagementController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['message' => 'Failed to delete user: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function getMappings(Request $request, $userId)
+    {
+        $mappings = DB::table('shifts_mapping')
+            ->join('shifts', 'shifts_mapping.shift_id', '=', 'shifts.id')
+            ->where('shifts_mapping.user_id', $userId)
+            ->select('shifts_mapping.*', 'shifts.name as shift_name')
+            ->orderBy('shifts_mapping.work_date', 'desc')
+            ->get();
+
+        return response()->json(['data' => $mappings]);
+    }
+
+    public function storeMapping(Request $request, $userId)
+    {
+        $request->validate([
+            'shift_id' => 'required',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $user = DB::table('users')->where('id', $userId)->first();
+            if (!$user) {
+                throw new \Exception('User not found');
+            }
+
+            $prefix = $userId . '-' . $user->company_id . '-';
+
+            $startDate = new \DateTime($request->start_date);
+            $endDate = new \DateTime($request->end_date);
+
+            // Delete existing mappings for this user in the specified range
+            DB::table('shifts_mapping')
+                ->where('user_id', $userId)
+                ->whereBetween('work_date', [$request->start_date, $request->end_date])
+                ->delete();
+
+            $interval = new \DateInterval('P1D');
+            $period = new \DatePeriod($startDate, $interval, $endDate->modify('+1 day'));
+
+            foreach ($period as $date) {
+                $workDate = $date->format('Y-m-d');
+
+                $lastMapping = DB::table('shifts_mapping')
+                    ->where('id', 'like', $prefix . '%')
+                    ->orderBy('id', 'desc')
+                    ->lockForUpdate()
+                    ->first();
+
+                $counter = 0;
+                if ($lastMapping) {
+                    $lastId = $lastMapping->id;
+                    $counter = (int) substr($lastId, -3);
+                }
+
+                $counter++;
+                $mappingId = $prefix . str_pad($counter, 3, '0', STR_PAD_LEFT);
+
+                DB::table('shifts_mapping')->insert([
+                    'id' => $mappingId,
+                    'user_id' => $userId,
+                    'shift_id' => $request->shift_id,
+                    'work_date' => $workDate,
+                    'lock_location' => $request->lock_location ?? 0,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Shift mapping saved successfully']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to save mapping: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function destroyMapping($id)
+    {
+        try {
+            DB::table('shifts_mapping')->where('id', $id)->delete();
+            return response()->json(['message' => 'Mapping deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to delete mapping'], 500);
         }
     }
 
@@ -436,4 +530,62 @@ class UserManagementController extends Controller
         return $menus;
     }
 
+    public function getAttachments($userId)
+    {
+        $attachments = DB::table('tr_attachments')
+            ->where('user_id', $userId)
+            ->get();
+
+        return response()->json($attachments);
+    }
+
+    public function storeAttachment(Request $request, $userId)
+    {
+        $request->validate([
+            'doc_type' => 'required',
+            'file' => 'required|file|max:10240', // 10MB max
+        ]);
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $originalName = $file->getClientOriginalName();
+            $docType = $request->doc_type;
+
+            // Format: [Document Type]-[Original File Name]
+            $fileName = $docType . '-' . $originalName;
+
+            // Store file
+            $path = $file->storeAs('attachments/' . $userId, $fileName, 'public');
+
+            DB::table('tr_attachments')->insert([
+                'user_id' => $userId,
+                'doc_type' => $docType,
+                'file_origin' => $originalName,
+                'file_final' => $fileName,
+                'file_path' => $path,
+                'created_at' => now(),
+            ]);
+
+            return response()->json(['message' => 'Attachment uploaded successfully']);
+        }
+
+        return response()->json(['message' => 'No file uploaded'], 400);
+    }
+
+    public function destroyAttachment($id)
+    {
+        $attachment = DB::table('tr_attachments')->where('id', $id)->first();
+
+        if ($attachment) {
+            // Delete file from storage
+            if (Storage::disk('public')->exists($attachment->file_path)) {
+                Storage::disk('public')->delete($attachment->file_path);
+            }
+
+            DB::table('tr_attachments')->where('id', $id)->delete();
+            return response()->json(['message' => 'Attachment deleted successfully']);
+        }
+
+        return response()->json(['message' => 'Attachment not found'], 404);
+    }
 }
