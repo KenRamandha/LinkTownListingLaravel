@@ -68,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/permissions', [MeController::class, 'permissions']);
     Route::get('/me/profile', [MeController::class, 'profile']);
     Route::put('/me/profile', [MeController::class, 'updateProfile']);
+    Route::post('/me/profile/photo', [MeController::class, 'updatePhoto']);
 
     // User Products
     Route::get('/user_product', [UserProductController::class, 'index']);

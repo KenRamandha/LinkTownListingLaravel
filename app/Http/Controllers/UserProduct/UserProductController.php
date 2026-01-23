@@ -599,8 +599,8 @@ class UserProductController extends Controller
             $errors[] = 'Title tidak boleh kosong';
         }
 
-        if (empty($product->description) || str_word_count($product->description) < 20) {
-            $errors[] = 'Description minimal 20 kata';
+        if (empty($product->description) || strlen($product->description) < 20) {
+            $errors[] = 'Description minimal 20 karakter';
         }
 
         if (empty($product->condition)) {
