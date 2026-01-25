@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\Web\User\UserManagementController;
 use App\Http\Controllers\Web\ShiftController;
+use App\Http\Controllers\Web\Transaction\TrDailyController;
 
 
 Route::get('/', function () {
@@ -57,5 +58,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/users/{userId}/attachments', [UserManagementController::class, 'getAttachments'])->name('users.attachments.list');
     Route::post('/users/{userId}/attachments', [UserManagementController::class, 'storeAttachment'])->name('users.attachments.store');
     Route::delete('/users/attachments/{id}', [UserManagementController::class, 'destroyAttachment'])->name('users.attachments.destroy');
+
+    // transactions
+    Route::get('/transaction/daily', [TrDailyController::class, 'index'])->name('transaction.daily.index');
+    Route::get('/transaction/daily/list', [TrDailyController::class, 'getList'])->name('transaction.daily.list');
+    Route::get('/transaction/daily/details/{daily_id}', [TrDailyController::class, 'getDetails'])->name('transaction.daily.details');
 
 });

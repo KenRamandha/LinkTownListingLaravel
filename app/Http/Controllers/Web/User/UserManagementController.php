@@ -676,7 +676,6 @@ class UserManagementController extends Controller
         $attachment = DB::table('tr_attachments')->where('id', $id)->first();
 
         if ($attachment) {
-            // Delete file from storage
             if (Storage::disk('public')->exists($attachment->file_path)) {
                 Storage::disk('public')->delete($attachment->file_path);
             }

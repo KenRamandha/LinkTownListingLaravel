@@ -72,8 +72,9 @@
                         <div
                             class="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-[#343F56]/5 overflow-hidden">
                             <div class="p-6 border-b border-gray-50">
-                                <h2 class="text-lg font-bold text-[#343F56]">Profile User</h2>
-                                <p class="text-xs text-gray-400 font-medium">Foto profile pengguna.</p>
+                                <h2 class="text-lg font-bold text-[#343F56]">{{ $user->name ?? '' }}</h2>
+                                <p class="text-xs text-gray-400 font-medium">{{ $user->email ?? '' }}</p>
+                                <p class="text-xs text-gray-400 font-medium">{{ $user->phone ?? '' }}</p>
                             </div>
 
                             <div class="p-8 flex flex-col items-center gap-6">
@@ -125,10 +126,12 @@
                                             ['target' => 'salary', 'label' => 'Gaji'],
                                             ['target' => 'allowances', 'label' => 'Tunjangan'],
                                             ['target' => 'permissions', 'label' => 'Izin/Cuti/Sakit'],
+                                            ['target' => 'web-menu-mapping', 'label' => 'Web Menu Mapping'],
+                                            ['target' => 'shift-mapping', 'label' => 'Shift Mapping'],
                                         ];
                                     @endphp
 
-                                      @foreach($tabMenus as $menu)
+                                    @foreach($tabMenus as $menu)
                                         <a href="javascript:void(0)" data-target="{{ $menu['target'] }}"
                                             class="tab-link flex items-center justify-between px-5 py-3.5 text-gray-500 hover:bg-gray-50 hover:text-[#FB9300] rounded-2xl transition-all group">
                                             <span class="font-bold text-sm">{{ $menu['label'] }}</span>
@@ -139,28 +142,6 @@
                                             </svg>
                                         </a>
                                     @endforeach
-
-                                    {{-- Web Menu Mapping Tab --}}
-                                    <a href="javascript:void(0)" data-target="web-menu-mapping" id="tab-web-mapping"
-                                        style="{{ (isset($user) && $user->akses_web == 'YES') ? '' : 'display: none;' }}"
-                                        class="tab-link flex items-center justify-between px-5 py-3.5 text-gray-500 hover:bg-gray-50 hover:text-[#FB9300] rounded-2xl transition-all group">
-                                        <span class="font-bold text-sm">Web Menu Mapping</span>
-                                        <svg class="w-4 h-4 text-gray-300 group-hover:text-[#FB9300] transition-colors"
-                                            fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </a>
-
-                                    <a href="javascript:void(0)" data-target="shift-mapping"
-                                        class="tab-link flex items-center justify-between px-5 py-3.5 text-gray-500 hover:bg-gray-50 hover:text-[#FB9300] rounded-2xl transition-all group">
-                                        <span class="font-bold text-sm">Shift Mapping</span>
-                                        <svg class="w-4 h-4 text-gray-300 group-hover:text-[#FB9300] transition-colors"
-                                            fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </a>
                                 </nav>
                             </div>
                         </div>
