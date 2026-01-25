@@ -20,13 +20,16 @@
     <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         @forelse($sidebarMenu as $item)
             @php
-                $isCurrent = request()->routeIs($item['route']);
-                $hasActiveChild = isset($item['has_active_child']) && $item['has_active_child'];
+                $isCurrent = $item['is_active'] ?? false;
+                $hasActiveChild = $item['has_active_child'] ?? false;
+                $hasChildren = !empty($item['children']);
+                $routeName = $item['route'];
+                $routeUrl = ($routeName && Route::has($routeName)) ? route($routeName) : '#';
             @endphp
 
-            @if(empty($item['children']))
+            @if(!$hasChildren)
                 {{-- Single Menu --}}
-                <a href="{{ $item['route'] ? route($item['route']) : '#' }}"
+                <a href="{{ $routeUrl }}"
                     class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group {{ $isCurrent ? 'bg-orange-50 text-[#FB9300]' : 'text-gray-500 hover:bg-gray-50 hover:text-[#343F56]' }}"
                     :class="sidebarDesktop ? 'justify-start' : 'justify-center'"
                     :title="!sidebarDesktop ? '{{ $item['name'] }}' : ''">
@@ -61,8 +64,13 @@
 
                     <div x-show="open && sidebarDesktop" x-collapse class="pl-11 space-y-1">
                         @foreach($item['children'] as $child)
-                            <a href="{{ $child['route'] ? route($child['route']) : '#' }}"
-                                class="block px-3 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs($child['route']) ? 'text-[#FB9300]' : 'text-gray-400 hover:text-[#343F56]' }}">
+                            @php
+                                $childRoute = $child['route'];
+                                $childUrl = ($childRoute && Route::has($childRoute)) ? route($childRoute) : '#';
+                                $isChildActive = $child['is_active'] ?? false;
+                            @endphp
+                            <a href="{{ $childUrl }}"
+                                class="block px-3 py-2 rounded-lg text-sm font-medium transition-all {{ $isChildActive ? 'text-[#FB9300]' : 'text-gray-400 hover:text-[#343F56]' }}">
                                 {{ $child['name'] }}
                             </a>
                         @endforeach

@@ -81,6 +81,17 @@ $(document).ready(function () {
         $("#company_id").trigger("change");
     }
 
+    $('select[name="akses_web"]').on("change", function () {
+        if ($(this).val() === "YES") {
+            $("#tab-web-mapping").fadeIn();
+        } else {
+            $("#tab-web-mapping").hide();
+            if ($("#tab-web-mapping").hasClass("active-tab")) {
+                $('a[data-target="general-info"]').trigger("click");
+            }
+        }
+    });
+
     $("#userForm").on("submit", function (e) {
         e.preventDefault();
         let form = $(this);
@@ -104,7 +115,6 @@ $(document).ready(function () {
             success: function (response) {
                 window.toast("success", response.message);
 
-                // If it was a create operation (no PUT method in form), redirect
                 if (form.find('input[name="_method"]').val() !== "PUT") {
                     setTimeout(() => {
                         window.location.href = "/users";
@@ -196,10 +206,22 @@ window.loadMappings = function () {
 
 window.saveMapping = function () {
     const userId = $("#userForm").attr("action").split("/").pop();
+    const shiftId = $("#mapping_shift_id").val();
+    const startDate = $("#mapping_start_date").val();
+    const endDate = $("#mapping_end_date").val();
+
+    if (!shiftId || !startDate || !endDate) {
+        window.toast(
+            "error",
+            "Harap lengkapi semua field mapping (Shift, Tanggal Mulai, dan Tanggal Selesai)",
+        );
+        return;
+    }
+
     const data = {
-        shift_id: $("#mapping_shift_id").val(),
-        start_date: $("#mapping_start_date").val(),
-        end_date: $("#mapping_end_date").val(),
+        shift_id: shiftId,
+        start_date: startDate,
+        end_date: endDate,
         lock_location: $("#mapping_lock_location").is(":checked") ? 1 : 0,
         _token: $('meta[name="csrf-token"]').attr("content"),
     };
@@ -263,11 +285,9 @@ window.addAttachmentRow = function () {
     const clone = template.content.cloneNode(true);
     const container = document.getElementById("attachmentArea");
 
-    // Convert fragment to jQuery object to easily find and initialize
     const $newRow = $(clone.children);
     $newRow.appendTo(container);
 
-    // Initialize Select2 for the new row
     $newRow.find(".select2").select2({
         width: "100%",
         allowClear: false,

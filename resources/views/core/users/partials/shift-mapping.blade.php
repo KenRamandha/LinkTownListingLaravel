@@ -10,7 +10,7 @@
         <div id="mappingFormContainer" class="bg-gray-50/50 rounded-3xl p-6 border border-gray-100">
             <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
 
-                <div class="md:col-span-3 space-y-2">
+                <div class="md:col-span-12 space-y-2">
                     <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Pilih
                         Shift</label>
                     <div class="relative">
@@ -18,13 +18,16 @@
                             class="w-full h-11 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all outline-none appearance-none select2-no-search">
                             <option value="">Pilih Shift</option>
                             @foreach($shifts as $shift)
-                                <option value="{{ $shift->id }}">{{ $shift->name }}</option>
+                                <option value="{{ $shift->id }}">{{ $shift->name }}
+                                    ({{ \Carbon\Carbon::parse($shift->start_time)->format('H:i') }} -
+                                    {{ \Carbon\Carbon::parse($shift->end_time)->format('H:i') }})
+                                </option>
                             @endforeach
                         </select>
                     </div>
                 </div>
 
-                <div class="md:col-span-7 space-y-2">
+                <div class="md:col-span-10 space-y-2">
                     <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Rentang
                         Tanggal</label>
                     <div class="flex flex-col md:flex-row md:items-center gap-4">
@@ -32,7 +35,7 @@
                             <div class="relative flex-1">
                                 <input type="date" id="mapping_start_date" name="start_date"
                                     class="w-full h-11 px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
-                                    min="{{ Carbon\Carbon::tomorrow()->format('Y-m-d') }}" required>
+                                    min="{{ Carbon\Carbon::tomorrow()->format('Y-m-d') }}">
                             </div>
 
                             <span class="text-gray-400 font-bold text-xs shrink-0">s/d</span>
@@ -40,7 +43,7 @@
                             <div class="relative flex-1">
                                 <input type="date" id="mapping_end_date" name="end_date"
                                     class="w-full h-11 px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
-                                    min="{{ Carbon\Carbon::tomorrow()->format('Y-m-d') }}" required>
+                                    min="{{ Carbon\Carbon::tomorrow()->format('Y-m-d') }}">
                             </div>
                         </div>
 

@@ -54,13 +54,6 @@
                 </div>
 
                 <div class="flex items-center gap-3">
-                    <!-- <button type="submit"
-                                        class="w-full inline-flex items-center justify-center px-5 py-2.5 bg-[#FB9300] hover:bg-[#e68600] text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-orange-100 active:scale-95">
-                                        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Simpan Semua Data
-                                    </button> -->
                     <a href="{{ route('users.index') }}"
                         class="inline-flex items-center justify-center px-6 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-[#343F56] text-sm font-bold rounded-xl transition-all shadow-sm">
                         Kembali
@@ -126,7 +119,7 @@
                                     </a>
 
                                     @php
-                                        $menus = [
+                                        $tabMenus = [
                                             ['target' => 'attachment', 'label' => 'Attachment & Status'],
                                             ['target' => 'locations', 'label' => 'Lokasi'],
                                             ['target' => 'salary', 'label' => 'Gaji'],
@@ -135,7 +128,7 @@
                                         ];
                                     @endphp
 
-                                    @foreach($menus as $menu)
+                                      @foreach($tabMenus as $menu)
                                         <a href="javascript:void(0)" data-target="{{ $menu['target'] }}"
                                             class="tab-link flex items-center justify-between px-5 py-3.5 text-gray-500 hover:bg-gray-50 hover:text-[#FB9300] rounded-2xl transition-all group">
                                             <span class="font-bold text-sm">{{ $menu['label'] }}</span>
@@ -146,6 +139,18 @@
                                             </svg>
                                         </a>
                                     @endforeach
+
+                                    {{-- Web Menu Mapping Tab --}}
+                                    <a href="javascript:void(0)" data-target="web-menu-mapping" id="tab-web-mapping"
+                                        style="{{ (isset($user) && $user->akses_web == 'YES') ? '' : 'display: none;' }}"
+                                        class="tab-link flex items-center justify-between px-5 py-3.5 text-gray-500 hover:bg-gray-50 hover:text-[#FB9300] rounded-2xl transition-all group">
+                                        <span class="font-bold text-sm">Web Menu Mapping</span>
+                                        <svg class="w-4 h-4 text-gray-300 group-hover:text-[#FB9300] transition-colors"
+                                            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </a>
 
                                     <a href="javascript:void(0)" data-target="shift-mapping"
                                         class="tab-link flex items-center justify-between px-5 py-3.5 text-gray-500 hover:bg-gray-50 hover:text-[#FB9300] rounded-2xl transition-all group">
@@ -190,6 +195,10 @@
 
                             <div id="shift-mapping" class="tab-content hidden">
                                 @include('core.users.partials.shift-mapping')
+                            </div>
+
+                            <div id="web-menu-mapping" class="tab-content hidden">
+                                @include('core.users.partials.web-menu-mapping')
                             </div>
                         </div>
                     </div>

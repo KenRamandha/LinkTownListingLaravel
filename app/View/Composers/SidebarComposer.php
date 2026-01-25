@@ -18,59 +18,75 @@ class SidebarComposer
             return;
         }
 
-        $menus = DB::table('user_roles as ur')
-            ->join('config_permission as cp', 'cp.role_id', '=', 'ur.role_id')
-            ->join('config_menu as cm', 'cm.id', '=', 'cp.menu_id')
-            ->where('ur.user_id', $user->id)
-            ->where('cp.can_view', 1)
-            ->where('cm.is_active', 1)
+        $companyId = $user->company_id;
+
+        $mainMenus = DB::table('config_main_menu as cmm')
+            ->join('config_main_menu_permission as cmmp', 'cmmp.main_menu_id', '=', 'cmm.id')
+            ->where('cmmp.user_id', $user->id)
+            ->whereJsonContains('cmmp.company_ids', $companyId)
+            ->where('cmmp.can_view', 1)
+            ->where('cmm.is_active', 1)
             ->select(
-                'cm.id',
-                'cm.parent_id',
-                'cm.menu_name',
-                'cm.menu_icon',
-                'cm.menu_route',
-                'cm.menu_order'
+                'cmm.id',
+                'cmm.menu_name',
+                'cmm.menu_icon',
+                'cmm.menu_route',
+                'cmm.menu_order'
             )
             ->distinct()
-            ->orderBy('cm.parent_id')
-            ->orderBy('cm.menu_order')
+            ->orderBy('cmm.menu_order')
             ->get();
 
-        $byId = [];
-        $currentRoute = Route::currentRouteName();
+        $subMenus = DB::table('config_sub_menu as csm')
+            ->join('config_sub_menu_permission as csmp', 'csmp.sub_menu_id', '=', 'csm.id')
+            ->where('csmp.user_id', $user->id)
+            ->whereJsonContains('csmp.company_ids', $companyId)
+            ->where('csmp.can_view', 1)
+            ->where('csm.is_active', 1)
+            ->select(
+                'csm.id',
+                'csm.main_menu_id',
+                'csm.menu_name',
+                'csm.menu_route',
+                'csm.menu_order'
+            )
+            ->distinct()
+            ->orderBy('csm.menu_order')
+            ->get();
 
-        foreach ($menus as $menu) {
-            $byId[$menu->id] = [
-                'id' => $menu->id,
-                'parent_id' => $menu->parent_id,
-                'name' => $menu->menu_name,
-                'icon' => $menu->menu_icon,
-                'route' => $menu->menu_route,
-                'is_active' => ($menu->menu_route === $currentRoute),
+        $currentRoute = Route::currentRouteName();
+        $mainMenuMap = [];
+
+        foreach ($mainMenus as $mm) {
+            $normalizedRoute = $mm->menu_route ? str_replace(':', '.', $mm->menu_route) : null;
+            $mainMenuMap[$mm->id] = [
+                'id' => $mm->id,
+                'name' => $mm->menu_name,
+                'icon' => $mm->menu_icon,
+                'route' => $normalizedRoute,
+                'is_active' => ($normalizedRoute === $currentRoute),
+                'has_active_child' => false,
                 'children' => []
             ];
         }
 
-        $tree = [];
-        foreach ($byId as $id => &$node) {
-            if ($node['is_active']) {
-                $parentId = $node['parent_id'];
-                while ($parentId && isset($byId[$parentId])) {
-                    $byId[$parentId]['has_active_child'] = true;
-                    $parentId = $byId[$parentId]['parent_id'];
+        foreach ($subMenus as $sm) {
+            if (isset($mainMenuMap[$sm->main_menu_id])) {
+                $normalizedRoute = $sm->menu_route ? str_replace(':', '.', $sm->menu_route) : null;
+                $isActive = ($normalizedRoute === $currentRoute);
+                if ($isActive) {
+                    $mainMenuMap[$sm->main_menu_id]['has_active_child'] = true;
                 }
-            }
 
-            if (empty($node['parent_id'])) {
-                $tree[] = &$node;
-            } else {
-                if (isset($byId[$node['parent_id']])) {
-                    $byId[$node['parent_id']]['children'][] = &$node;
-                }
+                $mainMenuMap[$sm->main_menu_id]['children'][] = [
+                    'id' => $sm->id,
+                    'name' => $sm->menu_name,
+                    'route' => $normalizedRoute,
+                    'is_active' => $isActive
+                ];
             }
         }
 
-        $view->with('sidebarMenu', $tree);
+        $view->with('sidebarMenu', array_values($mainMenuMap));
     }
 }

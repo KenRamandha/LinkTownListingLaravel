@@ -67,13 +67,15 @@ class UserManagementController extends Controller
         $roles = DB::table('roles')->select('id', 'name')->get();
         $companies = DB::table('companies')->select('id', 'name', 'code')->get();
 
+        $userCompanies = [];
+
         $banks = DB::table('ms_user_status')->where('stat_type', 'BANK')->get();
         $marriage_stats = DB::table('ms_user_status')->where('stat_type', 'NIKAH')->get();
         $tax_stats = DB::table('ms_user_status')->where('stat_type', 'PAJAK')->get();
         $employee_stats = DB::table('ms_user_status')->where('stat_type', 'KARYAWAN')->get();
         $doc_types = DB::table('ms_user_status')->where('stat_type', 'DOCUMENT')->get();
 
-        return view('core.users.add', compact('menus', 'roles', 'companies', 'banks', 'marriage_stats', 'tax_stats', 'employee_stats', 'doc_types'));
+        return view('core.users.add', compact('menus', 'roles', 'companies', 'banks', 'marriage_stats', 'tax_stats', 'employee_stats', 'doc_types', 'userCompanies'));
     }
 
     public function store(Request $request)
@@ -218,6 +220,48 @@ class UserManagementController extends Controller
                 ]);
             }
 
+            if ($request->akses_web == 'YES' && $request->has('menu_permissions')) {
+                $roleId = $request->role_id;
+                if (empty($roleId)) {
+                    $existingRole = DB::table('user_roles')->where('user_id', $userId)->first();
+                    $roleId = $existingRole ? $existingRole->role_id : null;
+                }
+
+                $companyIds = json_encode($request->user_companies ?? [$request->company_id]);
+
+                foreach ($request->menu_permissions as $type => $menus) {
+                    foreach ($menus as $menuId => $perms) {
+                        if ($type === 'main') {
+                            DB::table('config_main_menu_permission')->insert([
+                                'user_id' => $userId,
+                                'role_id' => $roleId,
+                                'company_ids' => $companyIds,
+                                'main_menu_id' => $menuId,
+                                'can_view' => isset($perms['view']) ? 1 : 0,
+                                'can_create' => isset($perms['create']) ? 1 : 0,
+                                'can_update' => isset($perms['update']) ? 1 : 0,
+                                'can_delete' => isset($perms['delete']) ? 1 : 0,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                        } else {
+                            DB::table('config_sub_menu_permission')->insert([
+                                'user_id' => $userId,
+                                'role_id' => $roleId,
+                                'company_ids' => $companyIds,
+                                'sub_menu_id' => $menuId,
+                                'can_view' => isset($perms['view']) ? 1 : 0,
+                                'can_create' => isset($perms['create']) ? 1 : 0,
+                                'can_update' => isset($perms['update']) ? 1 : 0,
+                                'can_delete' => isset($perms['delete']) ? 1 : 0,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                        }
+                    }
+                }
+            }
+
             DB::commit();
 
             return response()->json([
@@ -245,10 +289,23 @@ class UserManagementController extends Controller
             return abort(404);
         }
 
-        $menus = $this->getMenuTree();
+        $menus = $this->getMenuTree($id);
         $roles = DB::table('roles')->select('id', 'name')->get();
         $companies = DB::table('companies')->select('id', 'name', 'code')->get();
-        $shifts = DB::table('shifts')->where('company_id', $user->company_id)->select('id', 'name')->get();
+        $shifts = DB::table('shifts')->where('company_id', $user->company_id)->select('id', 'name', 'start_time', 'end_time')->get();
+
+        $permissionRow = DB::table('config_main_menu_permission')
+            ->where('user_id', $id)
+            ->first();
+
+        $userCompanies = [];
+        if ($permissionRow) {
+            $userCompanies = $permissionRow->company_ids;
+            if (is_string($userCompanies)) {
+                $userCompanies = json_decode($userCompanies, true) ?: [];
+            }
+        }
+        $userCompanies = is_array($userCompanies) ? $userCompanies : [];
 
         $banks = DB::table('ms_user_status')->where('stat_type', 'BANK')->get();
         $marriage_stats = DB::table('ms_user_status')->where('stat_type', 'NIKAH')->get();
@@ -256,7 +313,7 @@ class UserManagementController extends Controller
         $employee_stats = DB::table('ms_user_status')->where('stat_type', 'KARYAWAN')->get();
         $doc_types = DB::table('ms_user_status')->where('stat_type', 'DOCUMENT')->get();
 
-        return view('core.users.add', compact('user', 'menus', 'roles', 'companies', 'banks', 'marriage_stats', 'tax_stats', 'employee_stats', 'shifts', 'doc_types'));
+        return view('core.users.add', compact('user', 'menus', 'roles', 'companies', 'banks', 'marriage_stats', 'tax_stats', 'employee_stats', 'shifts', 'doc_types', 'userCompanies'));
     }
 
     public function update(Request $request, $id)
@@ -362,6 +419,54 @@ class UserManagementController extends Controller
                 );
             }
 
+            DB::table('config_main_menu_permission')->where('user_id', $id)->delete();
+            DB::table('config_sub_menu_permission')->where('user_id', $id)->delete();
+
+            if ($request->akses_web == 'YES' && $request->has('menu_permissions')) {
+                $roleId = $request->role_id;
+
+                if (empty($roleId)) {
+                    $existingRole = DB::table('user_roles')->where('user_id', $id)->first();
+                    $roleId = $existingRole ? $existingRole->role_id : null;
+                }
+
+                if ($roleId) {
+                    $companyIds = json_encode($request->user_companies ?? [$request->company_id]);
+
+                    foreach ($request->menu_permissions as $type => $menus) {
+                        foreach ($menus as $menuId => $perms) {
+                            if ($type === 'main') {
+                                DB::table('config_main_menu_permission')->insert([
+                                    'user_id' => $id,
+                                    'role_id' => $roleId,
+                                    'company_ids' => $companyIds,
+                                    'main_menu_id' => $menuId,
+                                    'can_view' => isset($perms['view']) ? 1 : 0,
+                                    'can_create' => isset($perms['create']) ? 1 : 0,
+                                    'can_update' => isset($perms['update']) ? 1 : 0,
+                                    'can_delete' => isset($perms['delete']) ? 1 : 0,
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                ]);
+                            } else {
+                                DB::table('config_sub_menu_permission')->insert([
+                                    'user_id' => $id,
+                                    'role_id' => $roleId,
+                                    'company_ids' => $companyIds,
+                                    'sub_menu_id' => $menuId,
+                                    'can_view' => isset($perms['view']) ? 1 : 0,
+                                    'can_create' => isset($perms['create']) ? 1 : 0,
+                                    'can_update' => isset($perms['update']) ? 1 : 0,
+                                    'can_delete' => isset($perms['delete']) ? 1 : 0,
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                ]);
+                            }
+                        }
+                    }
+                }
+            }
+
             DB::commit();
             return response()->json(['message' => 'User updated successfully']);
 
@@ -377,6 +482,8 @@ class UserManagementController extends Controller
     {
         try {
             DB::beginTransaction();
+            DB::table('config_main_menu_permission')->where('user_id', $id)->delete();
+            DB::table('config_sub_menu_permission')->where('user_id', $id)->delete();
             DB::table('shifts_mapping')->where('user_id', $id)->delete();
             DB::table('user_roles')->where('user_id', $id)->delete();
             DB::table('user_profiles')->where('user_id', $id)->delete();
@@ -423,7 +530,6 @@ class UserManagementController extends Controller
             $startDate = new \DateTime($request->start_date);
             $endDate = new \DateTime($request->end_date);
 
-            // Delete existing mappings for this user in the specified range
             DB::table('shifts_mapping')
                 ->where('user_id', $userId)
                 ->whereBetween('work_date', [$request->start_date, $request->end_date])
@@ -490,44 +596,40 @@ class UserManagementController extends Controller
         return response()->json($departments);
     }
 
-    private function getMenuTree()
+    private function getMenuTree($userId = null)
     {
-        $user = auth()->user();
-        if (!$user)
-            return [];
-
-        $menus = DB::table('menus')
-            ->where('company_id', $user->company_id)
+        $mainMenus = DB::table('config_main_menu')
             ->where('is_active', 1)
-            ->orderBy('name')
+            ->orderBy('menu_order')
             ->get();
 
-        foreach ($menus as $menu) {
-            $items = DB::table('menu_items')
-                ->where('menu_id', $menu->id)
-                ->orderBy('sort_order')
-                ->get();
-            $byId = [];
-            foreach ($items as $item) {
-                $byId[$item->id] = (array) $item;
-                $byId[$item->id]['children'] = [];
+        foreach ($mainMenus as $menu) {
+            if ($userId) {
+                $menu->permission = DB::table('config_main_menu_permission')
+                    ->where('user_id', $userId)
+                    ->where('main_menu_id', $menu->id)
+                    ->first();
             }
 
-            $tree = [];
-            foreach ($byId as $id => &$node) {
-                if (empty($node['parent_id'])) {
-                    $tree[] = &$node;
-                } else {
-                    if (isset($byId[$node['parent_id']])) {
-                        $byId[$node['parent_id']]['children'][] = &$node;
-                    }
+            $subMenus = DB::table('config_sub_menu')
+                ->where('main_menu_id', $menu->id)
+                ->where('is_active', 1)
+                ->orderBy('menu_order')
+                ->get();
+
+            if ($userId) {
+                foreach ($subMenus as $sub) {
+                    $sub->permission = DB::table('config_sub_menu_permission')
+                        ->where('user_id', $userId)
+                        ->where('sub_menu_id', $sub->id)
+                        ->first();
                 }
             }
 
-            $menu->tree = $tree;
+            $menu->tree = $subMenus;
         }
 
-        return $menus;
+        return $mainMenus;
     }
 
     public function getAttachments($userId)
@@ -543,18 +645,15 @@ class UserManagementController extends Controller
     {
         $request->validate([
             'doc_type' => 'required',
-            'file' => 'required|file|max:10240', // 10MB max
+            'file' => 'required|file|max:10240',
         ]);
 
         if ($request->hasFile('file')) {
             $file = $request->file('file');
             $originalName = $file->getClientOriginalName();
             $docType = $request->doc_type;
-
-            // Format: [Document Type]-[Original File Name]
             $fileName = $docType . '-' . $originalName;
 
-            // Store file
             $path = $file->storeAs('attachments/' . $userId, $fileName, 'public');
 
             DB::table('tr_attachments')->insert([
