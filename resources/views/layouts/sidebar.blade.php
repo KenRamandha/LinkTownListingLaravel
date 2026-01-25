@@ -35,8 +35,8 @@
                     :title="!sidebarDesktop ? '{{ $item['name'] }}' : ''">
 
                     @if(!empty($item['icon']))
-                        <i
-                            class="{{ $item['icon'] }} w-5 h-5 shrink-0 {{ $isCurrent ? 'text-[#FB9300]' : 'text-gray-400 group-hover:text-[#343F56]' }}"></i>
+                        <x-heroicon :name="$item['icon']"
+                            class="w-5 h-5 shrink-0 {{ $isCurrent ? 'text-[#FB9300]' : 'text-gray-400 group-hover:text-[#343F56]' }}" />
                     @endif
                     <span x-show="sidebarDesktop" x-transition.opacity class="whitespace-nowrap">{{ $item['name'] }}</span>
                 </a>
@@ -49,8 +49,8 @@
                         :class="sidebarDesktop ? 'justify-between' : 'justify-center'">
                         <div class="flex items-center gap-3">
                             @if(!empty($item['icon']))
-                                <i
-                                    class="{{ $item['icon'] }} w-5 h-5 shrink-0 {{ $hasActiveChild ? 'text-[#FB9300]' : 'text-gray-400 group-hover:text-[#343F56]' }}"></i>
+                                <x-heroicon :name="$item['icon']"
+                                    class="w-5 h-5 shrink-0 {{ $hasActiveChild ? 'text-[#FB9300]' : 'text-gray-400 group-hover:text-[#343F56]' }}" />
                             @endif
                             <span x-show="sidebarDesktop" x-transition.opacity
                                 class="whitespace-nowrap">{{ $item['name'] }}</span>
