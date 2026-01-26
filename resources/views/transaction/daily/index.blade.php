@@ -22,12 +22,10 @@
                     <span class="text-[10px] font-bold text-gray-400 uppercase px-2 mb-1">Date Range</span>
                     <div class="flex items-center gap-2 px-2 pb-1">
                         <input type="date" x-model="startDate"
-                            class="text-sm font-bold text-[#343F56] border-none focus:ring-0 p-0 w-32 bg-transparent"
-                            @change="$dispatch('filter-changed')">
+                            class="text-sm font-bold text-[#343F56] border-none focus:ring-0 p-0 w-32 bg-transparent">
                         <span class="text-gray-300">to</span>
                         <input type="date" x-model="endDate"
-                            class="text-sm font-bold text-[#343F56] border-none focus:ring-0 p-0 w-32 bg-transparent"
-                            @change="$dispatch('filter-changed')">
+                            class="text-sm font-bold text-[#343F56] border-none focus:ring-0 p-0 w-32 bg-transparent">
                     </div>
                 </div>
 
@@ -138,9 +136,10 @@
                 <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
                     <div class="space-y-6">
                         <div class="grid gap-4">
-                            <div class="bg-white p-4 rounded-2xl border border-gray-50 shadow-sm text-right">
-                                <span class="text-[10px] font-bold text-gray-400 uppercase">Total Transaction</span>
-                                <p id="detailTotal" class="text-xl font-black text-[#FB9300] mt-1"></p>
+                            <div class="bg-white p-4 rounded-2xl border border-gray-50 shadow-sm ">
+                                <span class="text-left text-[10px] font-bold text-gray-400 uppercase">Total
+                                    Transaction</span>
+                                <p id="detailTotal" class="text-right text-xl font-black text-[#FB9300] mt-1"></p>
                             </div>
                         </div>
 

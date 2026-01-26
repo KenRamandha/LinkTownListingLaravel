@@ -107,12 +107,22 @@ $(document).ready(function () {
     });
 
     window.addEventListener("filter-changed", function () {
-        console.log(
-            "Filter changed:",
-            $("#startDateValue").val(),
-            $("#endDateValue").val(),
-        );
-        Object.values(tables).forEach((t) => t.ajax.reload());
+        window.showLoading("dailyLoading");
+        const activeTables = Object.values(tables);
+        if (activeTables.length === 0) {
+            window.hideLoading("dailyLoading");
+            return;
+        }
+
+        let loadedCount = 0;
+        activeTables.forEach((t) => {
+            t.ajax.reload(() => {
+                loadedCount++;
+                if (loadedCount === activeTables.length) {
+                    window.hideLoading("dailyLoading");
+                }
+            });
+        });
     });
 
     setTimeout(() => {
