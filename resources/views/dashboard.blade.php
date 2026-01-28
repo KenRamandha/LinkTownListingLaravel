@@ -12,10 +12,12 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <!-- Stat Card 1 -->
-            <div class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <!-- Total Users -->
+            <a href="{{ route('users.index') }}"
+                class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow group">
                 <div class="flex items-center gap-4 mb-4">
-                    <div class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    <div
+                        class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors border border-blue-100">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -23,73 +25,133 @@
                     </div>
                 </div>
                 <div>
-                    <h3 class="text-2xl font-bold text-gray-900">124</h3>
-                    <p class="text-xs font-medium text-gray-400 uppercase tracking-widest mt-1">Total Users</p>
+                    <h3 class="text-3xl font-bold text-gray-900">{{ number_format($totalUser) }}</h3>
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1">Total Users</p>
                 </div>
-            </div>
+            </a>
 
-            <!-- Stat Card 2 -->
-            <div class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <!-- Total Transaksi -->
+            <a href="{{ route('transaction.daily.index') }}"
+                class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow group">
                 <div class="flex items-center gap-4 mb-4">
-                    <div class="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                    <div
+                        class="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors border border-indigo-100">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
                     </div>
                 </div>
                 <div>
-                    <h3 class="text-2xl font-bold text-gray-900">45</h3>
-                    <p class="text-xs font-medium text-gray-400 uppercase tracking-widest mt-1">Active Roles</p>
+                    <h3 class="text-3xl font-bold text-gray-900">{{ number_format($totalTransaksi) }}</h3>
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1">Transaksi Hari Ini</p>
                 </div>
-            </div>
+            </a>
 
-            <!-- Stat Card 3 -->
-            <div class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <!-- Total Absensi -->
+            <div
+                class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-default">
                 <div class="flex items-center gap-4 mb-4">
-                    <div class="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-600">
+                    <div
+                        class="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors border border-green-100">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                         </svg>
                     </div>
                 </div>
                 <div>
-                    <h3 class="text-2xl font-bold text-gray-900">98%</h3>
-                    <p class="text-xs font-medium text-gray-400 uppercase tracking-widest mt-1">System Status</p>
+                    <h3 class="text-3xl font-bold text-gray-900">{{ number_format($totalAbsensi) }}</h3>
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1">Absensi Hari Ini</p>
                 </div>
             </div>
 
-            <!-- Stat Card 4 -->
-            <div class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <!-- Total Visit -->
+            <div
+                class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-default">
                 <div class="flex items-center gap-4 mb-4">
-                    <div class="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600">
+                    <div
+                        class="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors border border-orange-100">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.244a8 8 0 1111.314 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                     </div>
                 </div>
                 <div>
-                    <h3 class="text-2xl font-bold text-gray-900">5</h3>
-                    <p class="text-xs font-medium text-gray-400 uppercase tracking-widest mt-1">Pending Items</p>
+                    <h3 class="text-3xl font-bold text-gray-900">{{ number_format($totalVisit) }}</h3>
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1">Visit Hari Ini</p>
                 </div>
             </div>
         </div>
 
-        <div
-            class="mt-8 bg-white rounded-3xl border border-gray-100 shadow-sm p-8 min-h-[300px] flex items-center justify-center">
-            <div class="text-center">
-                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-50 mb-4">
-                    <svg class="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                    </svg>
-                </div>
-                <h3 class="text-lg font-bold text-gray-900">Workspace Dashboard</h3>
-                <p class="text-sm text-gray-500 mt-1 max-w-sm mx-auto">Select a menu item from the sidebar to get started
-                    managing your application.</p>
+        <div class="mt-12">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-gray-900">Daily User Status</h2>
+                <span
+                    class="px-4 py-1.5 bg-gray-100 text-gray-600 text-xs font-bold rounded-full uppercase tracking-widest">
+                    {{ now()->format('d M Y') }}
+                </span>
             </div>
+
+            <div id="activity-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                @include('partials.activity-cards', ['userActivities' => $userActivities])
+            </div>
+
+            @if ($userActivities->hasMorePages())
+                <div class="mt-12 text-center">
+                    <button id="load-more" data-page="2"
+                        class="px-8 py-3 bg-white border border-gray-200 text-gray-900 font-bold rounded-2xl shadow-sm hover:shadow-md hover:border-blue-200 hover:text-blue-600 transition-all active:scale-95">
+                        Load More Activities
+                    </button>
+                    <p id="loading-text" class="hidden text-gray-400 font-medium mt-4">Loading more activities...</p>
+                </div>
+            @endif
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const loadMoreBtn = document.getElementById('load-more');
+            const activityContainer = document.getElementById('activity-container');
+            const loadingText = document.getElementById('loading-text');
+
+            if (loadMoreBtn) {
+                loadMoreBtn.addEventListener('click', function () {
+                    const page = this.getAttribute('data-page');
+
+                    loadMoreBtn.classList.add('hidden');
+                    loadingText.classList.remove('hidden');
+
+                    fetch(`{{ route('home') }}?page=${page}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                        .then(response => response.text())
+                        .then(html => {
+                            if (html.trim() === '') {
+                                loadMoreBtn.remove();
+                                loadingText.innerText = 'No more activities to load.';
+                                loadingText.classList.remove('hidden');
+                                return;
+                            }
+
+                            activityContainer.insertAdjacentHTML('beforeend', html);
+                            this.setAttribute('data-page', parseInt(page) + 1);
+
+                            loadMoreBtn.classList.remove('hidden');
+                            loadingText.classList.add('hidden');
+                        })
+                        .catch(error => {
+                            console.error('Error loading more activities:', error);
+                            loadMoreBtn.classList.remove('hidden');
+                            loadingText.classList.add('hidden');
+                        });
+                });
+            }
+        });
+    </script>
 @endsection
