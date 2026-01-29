@@ -24,7 +24,30 @@ class DashboardController extends Controller
         }
 
         $stats = $this->dashboardService->getStats($request->user());
+        $users = $this->dashboardService->getAllUsers($request->user());
 
-        return view('dashboard', $stats);
+        return view('dashboard', array_merge($stats, ['users' => $users]));
+    }
+
+    public function getAttendanceData(Request $request)
+    {
+        $userIds = $request->input('user_ids');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        $data = $this->dashboardService->getAttendanceList($request->user(), $userIds, $startDate, $endDate);
+
+        return response()->json(['data' => $data]);
+    }
+
+    public function getVisitData(Request $request)
+    {
+        $userIds = $request->input('user_ids');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        $data = $this->dashboardService->getVisitList($request->user(), $userIds, $startDate, $endDate);
+
+        return response()->json(['data' => $data]);
     }
 }

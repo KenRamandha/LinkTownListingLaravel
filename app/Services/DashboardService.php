@@ -32,7 +32,9 @@ class DashboardService
             ->count();
 
         $totalTransaksi = DB::table('tr_daily_h')
-            ->join('users', 'tr_daily_h.user_id', '=', 'users.id')
+            ->join('users', function ($join) {
+                $join->on(DB::raw('tr_daily_h.user_id COLLATE utf8mb4_unicode_ci'), '=', DB::raw('users.id COLLATE utf8mb4_unicode_ci'));
+            })
             ->whereIn('users.company_id', $companyIds)
             ->whereDate('tr_daily_h.transaction_date', Carbon::today())
             ->whereNull('tr_daily_h.deleted_date')
@@ -111,5 +113,75 @@ class DashboardService
             ])
             ->orderByRaw('GREATEST(COALESCE(shifts_mapping.checkin_time, "00:00:00"), COALESCE(shifts_mapping.checkout_time, "00:00:00"), COALESCE(TIME(v.last_visit_time), "00:00:00")) DESC')
             ->paginate(8);
+    }
+
+    public function getAllUsers($currentUser)
+    {
+        $companyIds = $this->transactionService->getAuthorizedCompanyIds($currentUser);
+        return DB::table('users')
+            ->join('user_profiles', 'users.id', '=', 'user_profiles.user_id')
+            ->whereIn('users.company_id', $companyIds)
+            ->select('users.id', 'user_profiles.name')
+            ->orderBy('user_profiles.name')
+            ->get();
+    }
+
+    public function getAttendanceList($currentUser, $userIds, $startDate, $endDate)
+    {
+        $companyIds = $this->transactionService->getAuthorizedCompanyIds($currentUser);
+        $userIds = (array) $userIds;
+
+        $query = DB::table('shifts_mapping')
+            ->join('users', function ($join) {
+                $join->on(DB::raw('shifts_mapping.user_id COLLATE utf8mb4_unicode_ci'), '=', DB::raw('users.id COLLATE utf8mb4_unicode_ci'));
+            })
+            ->join('user_profiles', 'users.id', '=', 'user_profiles.user_id')
+            ->whereIn('users.company_id', $companyIds)
+            ->whereBetween('shifts_mapping.work_date', [$startDate, $endDate]);
+
+        if (!in_array('all', $userIds) && !empty($userIds)) {
+            $query->whereIn('shifts_mapping.user_id', $userIds);
+        }
+
+        return $query->select([
+            'user_profiles.name',
+            'shifts_mapping.work_date',
+            'shifts_mapping.checkin_time',
+            'shifts_mapping.checkout_time',
+            'shifts_mapping.checkin_address',
+            'shifts_mapping.checkout_address',
+        ])
+            ->orderBy('shifts_mapping.work_date', 'desc')
+            ->get();
+    }
+
+    public function getVisitList($currentUser, $userIds, $startDate, $endDate)
+    {
+        $companyIds = $this->transactionService->getAuthorizedCompanyIds($currentUser);
+        $userIds = (array) $userIds;
+
+        $query = DB::table('kunjungan')
+            ->join('users', function ($join) {
+                $join->on(DB::raw('kunjungan.user_id COLLATE utf8mb4_unicode_ci'), '=', DB::raw('users.id COLLATE utf8mb4_unicode_ci'));
+            })
+            ->join('user_profiles', 'users.id', '=', 'user_profiles.user_id')
+            ->whereIn('users.company_id', $companyIds)
+            ->whereBetween('kunjungan.tanggal', [$startDate, $endDate]);
+
+        if (!in_array('all', $userIds) && !empty($userIds)) {
+            $query->whereIn('kunjungan.user_id', $userIds);
+        }
+
+        return $query->select([
+            'user_profiles.name',
+            'kunjungan.tanggal',
+            'kunjungan.visit_in',
+            'kunjungan.visit_out',
+            'kunjungan.address_in',
+            'kunjungan.address_out',
+            'kunjungan.keterangan_in'
+        ])
+            ->orderBy('kunjungan.tanggal', 'desc')
+            ->get();
     }
 }

@@ -25,28 +25,32 @@
                     </h3>
 
                     <div class="grid grid-cols-2 gap-y-3 gap-x-2">
-                        <div class="space-y-1">
+                        <div class="space-y-1 cursor-pointer hover:bg-gray-50 p-1 rounded-lg transition-colors"
+                            @click="openAttendanceModal('{{ $activity->id }}')">
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">In</p>
                             <p
                                 class="text-sm font-semibold {{ $activity->checkin_time ? 'text-blue-600' : 'text-gray-300' }}">
                                 {{ $activity->checkin_time ? \Carbon\Carbon::parse($activity->checkin_time)->format('H:i') : '--:--' }}
                             </p>
                         </div>
-                        <div class="space-y-1">
+                        <div class="space-y-1 cursor-pointer hover:bg-gray-50 p-1 rounded-lg transition-colors"
+                            @click="openAttendanceModal('{{ $activity->id }}')">
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Out</p>
                             <p
                                 class="text-sm font-semibold {{ $activity->checkout_time ? 'text-indigo-600' : 'text-gray-300' }}">
                                 {{ $activity->checkout_time ? \Carbon\Carbon::parse($activity->checkout_time)->format('H:i') : '--:--' }}
                             </p>
                         </div>
-                        <div class="space-y-1">
+                        <div class="space-y-1 cursor-pointer hover:bg-gray-50 p-1 rounded-lg transition-colors"
+                            @click="openVisitModal('{{ $activity->id }}')">
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Visits</p>
                             <p
                                 class="text-sm font-semibold {{ $activity->total_visit ? 'text-green-600' : 'text-gray-300' }}">
                                 {{ number_format($activity->total_visit ?? 0) }}
                             </p>
                         </div>
-                        <div class="space-y-1">
+                        <div class="space-y-1 cursor-pointer hover:bg-gray-50 p-1 rounded-lg transition-colors"
+                            @click="openVisitModal('{{ $activity->id }}')">
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Last Visit</p>
                             <p
                                 class="text-sm font-semibold {{ $activity->last_visit_time ? 'text-orange-600' : 'text-gray-300' }}">

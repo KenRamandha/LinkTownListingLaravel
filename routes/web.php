@@ -25,6 +25,8 @@ Route::post('/logout', [App\Http\Controllers\Web\Auth\LoginController::class, 'l
 */
 Route::middleware('auth')->group(function () {
     Route::get('/home', [App\Http\Controllers\Web\DashboardController::class, 'index'])->name('home');
+    Route::get('/dashboard/attendance-data', [App\Http\Controllers\Web\DashboardController::class, 'getAttendanceData'])->name('dashboard.attendance-data');
+    Route::get('/dashboard/visit-data', [App\Http\Controllers\Web\DashboardController::class, 'getVisitData'])->name('dashboard.visit-data');
 
     // user
     Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');

@@ -20,6 +20,9 @@
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
     <style>
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
@@ -245,6 +248,135 @@
 
         .select2-container--default.select2-container--disabled .select2-selection__rendered {
             color: #9ca3af !important;
+        }
+
+        /* Select2 Multiple Selection Refinement */
+        .select2-container--default .select2-selection--multiple {
+            min-height: 48px !important;
+            border-radius: 0.75rem !important;
+            border: 1px solid #e5e7eb !important;
+            background-color: #ffffff !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            padding: 4px 8px !important;
+            display: flex !important;
+            align-items: center !important;
+            flex-wrap: wrap !important;
+            cursor: text !important;
+            /* Ganti ke text agar terasa seperti input */
+        }
+
+        /* State: Focus & Open */
+        .select2-container--default.select2-container--focus .select2-selection--multiple,
+        .select2-container--default.select2-container--open .select2-selection--multiple {
+            border-color: #FB9300 !important;
+            box-shadow: 0 0 0 3px rgba(251, 147, 0, 0.15) !important;
+            /* Glow lebih halus */
+            outline: none !important;
+        }
+
+        /* Wrapper Tag/Pilihan */
+        .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            align-items: center !important;
+            gap: 6px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+        }
+
+        /* Styling Tiap Tag (Choice) */
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background-color: #fff7ed !important;
+            border: 1px solid #ffedd5 !important;
+            border-radius: 6px !important;
+            /* Sedikit lebih kotak agar proporsional */
+            padding: 2px 8px !important;
+            color: #FB9300 !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            margin: 2px 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            line-height: 1.4 !important;
+        }
+
+        /* Tombol Hapus (X) */
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            color: #FB9300 !important;
+            border: none !important;
+            border-right: 1px solid #ffedd5 !important;
+            padding: 0 6px !important;
+            margin-right: 6px !important;
+            margin-left: -4px !important;
+            /* Menempel ke kiri tag */
+            transition: all 0.2s !important;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+            background-color: #fb9300 !important;
+            color: white !important;
+        }
+
+        /* Input Search di Dalam Container */
+        .select2-container--default .select2-search--inline {
+            display: inline-flex !important;
+            align-items: center !important;
+            padding: 4px 0 !important;
+        }
+
+        .select2-container--default .select2-search--inline .select2-search__field {
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-size: 14px !important;
+            margin-left: 4px !important;
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            height: 24px !important;
+            /* Presisi tengah */
+        }
+
+        /* --- Loading States --- */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            border-radius: 0.75rem;
+        }
+
+        .spinner {
+            width: 28px;
+            /* Lebih kecil agar elegan */
+            height: 28px;
+            border: 3px solid rgba(251, 147, 0, 0.1);
+            border-top: 3px solid #FB9300;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* Mengunci tinggi label agar sejajar secara horizontal */
+        .filter-label {
+            height: 20px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.375rem;
+            /* 1.5 spacing */
+        }
+
+        /* Memastikan input memiliki tinggi standar yang sama */
+        .custom-input {
+            height: 45px !important;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .custom-textarea,

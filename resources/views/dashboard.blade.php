@@ -4,7 +4,26 @@
 @section('header', 'Overview')
 
 @section('content')
-    <div class="p-8 lg:p-12">
+    <div id="dashboard-container" class="p-8 lg:p-12" x-data="{ 
+        showAttendanceModal: false, 
+        showVisitModal: false,
+        loadingAttendance: false,
+        loadingVisit: false,
+        openAttendanceModal(userId) {
+            this.showAttendanceModal = true;
+            this.$nextTick(() => {
+                $('#at-user-select').val(userId ? [userId] : ['all']).trigger('change');
+                atTable.ajax.reload();
+            });
+        },
+        openVisitModal(userId) {
+            this.showVisitModal = true;
+            this.$nextTick(() => {
+                $('#vs-user-select').val(userId ? [userId] : ['all']).trigger('change');
+                vsTable.ajax.reload();
+            });
+        }
+    }">
         <div class="mb-10">
             <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Welcome back, {{ Auth::user()->name ?? 'User' }}!
             </h1>
@@ -49,8 +68,8 @@
             </a>
 
             <!-- Total Absensi -->
-            <div
-                class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-default">
+            <div class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
+                @click="openAttendanceModal('')">
                 <div class="flex items-center gap-4 mb-4">
                     <div
                         class="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors border border-green-100">
@@ -67,8 +86,8 @@
             </div>
 
             <!-- Total Visit -->
-            <div
-                class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-default">
+            <div class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
+                @click="openVisitModal('')">
                 <div class="flex items-center gap-4 mb-4">
                     <div
                         class="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors border border-orange-100">
@@ -110,48 +129,16 @@
                 </div>
             @endif
         </div>
+
+        @include('partials.dashboard-modals', ['users' => $users])
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const loadMoreBtn = document.getElementById('load-more');
-            const activityContainer = document.getElementById('activity-container');
-            const loadingText = document.getElementById('loading-text');
-
-            if (loadMoreBtn) {
-                loadMoreBtn.addEventListener('click', function () {
-                    const page = this.getAttribute('data-page');
-
-                    loadMoreBtn.classList.add('hidden');
-                    loadingText.classList.remove('hidden');
-
-                    fetch(`{{ route('home') }}?page=${page}`, {
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    })
-                        .then(response => response.text())
-                        .then(html => {
-                            if (html.trim() === '') {
-                                loadMoreBtn.remove();
-                                loadingText.innerText = 'No more activities to load.';
-                                loadingText.classList.remove('hidden');
-                                return;
-                            }
-
-                            activityContainer.insertAdjacentHTML('beforeend', html);
-                            this.setAttribute('data-page', parseInt(page) + 1);
-
-                            loadMoreBtn.classList.remove('hidden');
-                            loadingText.classList.add('hidden');
-                        })
-                        .catch(error => {
-                            console.error('Error loading more activities:', error);
-                            loadMoreBtn.classList.remove('hidden');
-                            loadingText.classList.add('hidden');
-                        });
-                });
-            }
-        });
+        window.DashboardConfig = {
+            homeUrl: "{{ route('home') }}",
+            attendanceDataUrl: "{{ route('dashboard.attendance-data') }}",
+            visitDataUrl: "{{ route('dashboard.visit-data') }}"
+        };
     </script>
+    <script src="{{ asset('assets/js/custom/dashboard/dashboard.js') }}"></script>
 @endsection
