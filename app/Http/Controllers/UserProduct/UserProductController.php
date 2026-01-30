@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\UserProduct\MsProduct;
 use App\Models\UserProduct\MsProductImage;
 use App\Models\UserProduct\MsProductLocation;
+use App\Services\Lamudi\LamudiAdMapper;
+use App\Services\Lamudi\LamudiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -655,11 +658,14 @@ class UserProductController extends Controller
 
         try {
             $user = $request->user();
-            
+
             $product->update([
                 'status' => 'Publish',
                 'update_by' => $user?->id,
             ]);
+
+            // Sync to Lamudi
+            $this->syncToLamudi($product);
 
             return response()->json([
                 'success' => true,
@@ -667,6 +673,7 @@ class UserProductController extends Controller
                 'data' => [
                     'product_id' => $product->product_id,
                     'status' => 'Publish',
+                    'lamudi_sync_status' => $product->lamudi_sync_status,
                 ],
             ]);
         } catch (Throwable $e) {
@@ -675,6 +682,61 @@ class UserProductController extends Controller
                 'message' => 'Gagal menerbitkan produk',
                 'error' => $e->getMessage(),
             ], 500);
+        }
+    }
+
+    // Sync product to Lamudi
+    private function syncToLamudi(MsProduct $product): void
+    {
+        try {
+            $lamudiService = new LamudiService();
+            $mapper = new LamudiAdMapper();
+
+            // Prepare images for Lamudi
+            $displayImages = $product->displayImages()->get()->map(function ($img) {
+                return [
+                    'url' => $this->publicUrl($img->url),
+                    'type' => 'DISPLAY',
+                ];
+            })->toArray();
+
+            $layoutImages = $product->layoutImages()->get()->map(function ($img) {
+                return [
+                    'url' => $this->publicUrl($img->url),
+                    'type' => 'LAYOUT',
+                ];
+            })->toArray();
+
+            $allImages = array_merge($displayImages, $layoutImages);
+
+            // Map product data to Lamudi format
+            $lamudiAdData = $mapper->mapToLamudiAd($product, $allImages);
+
+            // Check if already synced, then update, otherwise create
+            if ($product->isSyncedWithLamudi()) {
+                // Update existing ad
+                $lamudiService->updateAd($product->lamudi_reference_id, $lamudiAdData);
+                Log::info('Lamudi ad updated', [
+                    'product_id' => $product->product_id,
+                    'lamudi_reference_id' => $product->lamudi_reference_id,
+                ]);
+            } else {
+                // Create new ad
+                $response = $lamudiService->createAd($lamudiAdData);
+                $product->markAsLamudiSynced($response['referenceId'] ?? $product->product_id);
+                Log::info('Lamudi ad created', [
+                    'product_id' => $product->product_id,
+                    'lamudi_reference_id' => $product->lamudi_reference_id,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Mark as failed but don't prevent the publish operation
+            $product->markAsLamudiFailed($e->getMessage());
+            Log::error('Failed to sync product to Lamudi', [
+                'product_id' => $product->product_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
         }
     }
 
