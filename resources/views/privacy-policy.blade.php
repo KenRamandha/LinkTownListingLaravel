@@ -191,11 +191,13 @@
                     LinkTown Listing adalah aplikasi mobile yang menyediakan layanan pencarian dan penelusuran
                     listing properti (rumah, apartemen, ruko, dan jenis properti lainnya), termasuk fitur
                     pemfilteran berdasarkan lokasi dan harga, simulasi KPR, serta komunikasi dengan sales/
-                    marketing melalui WhatsApp. Kebijakan Privasi ini berlaku untuk penggunaan Aplikasi pada
+                    marketing melalui WhatsApp. Aplikasi ini juga menyediakan fitur absensi (attendance)
+                    untuk karyawan internal.
+                    Kebijakan Privasi ini berlaku untuk penggunaan Aplikasi pada
                     perangkat Android, iOS, serta (jika tersedia) versi web aplikasi.
                 </p>
                 <p>
-                    Dalam Kebijakan Privasi ini, “kami” mengacu pada <strong>PT. Asia Rumah Utama</strong>, dan “Anda”
+                    Dalam Kebijakan Privasi ini, "kami" mengacu pada <strong>PT. Asia Rumah Utama</strong>, dan "Anda"
                     mengacu pada pengguna Aplikasi. Kami berkomitmen untuk melindungi data pribadi Anda dan
                     memprosesnya sesuai dengan peraturan perundang-undangan yang berlaku.
                 </p>
@@ -226,7 +228,8 @@
                     <li>Properti yang Anda lihat, klik, atau buka detailnya.</li>
                     <li>Properti yang Anda simpan sebagai favorit atau bookmark.</li>
                     <li>Interaksi dengan fitur simulasi KPR (misalnya harga, tenor, DP yang diisi untuk perhitungan).</li>
-                    <li>Interaksi lain di Aplikasi, seperti klik tombol “hubungi sales” (WhatsApp), tombol “bagikan” (share), dan fitur serupa.</li>
+                    <li>Interaksi lain di Aplikasi, seperti klik tombol "hubungi sales" (WhatsApp), tombol "bagikan" (share), dan fitur serupa.</li>
+                    <li><strong>Data absensi</strong> - Riwayat clock in/out, lokasi, waktu, foto bukti kehadiran, dan catatan terkait absensi.</li>
                 </ul>
 
                 <h3>2.4 Data Lokasi</h3>
@@ -247,6 +250,13 @@
                 <ul>
                     <li>Foto yang Anda ambil menggunakan kamera melalui Aplikasi (misalnya foto properti atau foto profil).</li>
                     <li>Foto atau file media yang Anda pilih dari galeri atau penyimpanan perangkat untuk diunggah ke Aplikasi.</li>
+                    <li><strong>Foto wajah untuk absensi</strong> - Foto yang diambil saat melakukan clock in/out untuk verifikasi kehadiran.</li>
+                </ul>
+
+                <h3>2.7 Data Wajah & Biometrik</h3>
+                <ul>
+                    <li>Foto wajah yang diambil saat proses absensi (clock in/clock out) digunakan untuk verifikasi kehadiran karyawan.</li>
+                    <li>Data wajah disimpan bersama dengan data absensi sebagai bukti kehadiran yang sah.</li>
                 </ul>
 
                 <h3>2.7 Token Notifikasi</h3>
@@ -331,15 +341,22 @@
                     Aplikasi dapat meminta izin untuk mengakses kamera, galeri foto, dan media di perangkat Anda untuk memungkinkan:
                 </p>
                 <ul>
-                    <li>Mengambil foto langsung melalui Aplikasi (misalnya foto properti atau foto profil).</li>
-                    <li>Mengunggah foto dari galeri atau penyimpanan perangkat.</li>
-                    <li>Menampilkan foto yang telah Anda unggah, misalnya dalam profil atau listing tertentu.</li>
+                    <li><strong>Verifikasi absensi (Attendance)</strong> - Mengambil foto wajah Anda saat melakukan clock in/clock out untuk membuktikan kehadiran Anda di lokasi kerja yang telah ditentukan.</li>
+                    <li><strong>Foto profil</strong> - Mengambil atau memilih foto untuk profil pengguna Anda.</li>
+                    <li><strong>Dokumentasi</strong> - Mengambil foto dokumen atau bukti pendukung yang diperlukan dalam aplikasi.</li>
+                    <li><strong>Upload media</strong> - Mengunggah foto dari galeri atau penyimpanan perangkat untuk keperluan yang disebutkan di atas.</li>
                 </ul>
-                <p>Ketentuan penggunaan media:</p>
+                <p><strong>Ketentuan penggunaan media untuk absensi:</strong></p>
+                <ul>
+                    <li>Kamera hanya diakses ketika Anda secara aktif melakukan proses clock in atau clock out.</li>
+                    <li>Foto yang diambil akan digunakan sebagai bukti kehadiran yang sah dan dapat dilihat oleh administrator/perusahaan Anda.</li>
+                    <li>Foto absensi disimpan sesuai dengan ketentuan retensi data pada bagian <strong>11.1 Retensi Data Wajah & Foto Absensi</strong>.</li>
+                </ul>
+                <p><strong>Pengaturan izin:</strong></p>
                 <ul>
                     <li>Kami hanya mengakses kamera dan galeri ketika Anda secara aktif menggunakan fitur yang memerlukannya.</li>
                     <li>Anda dapat menolak atau mencabut izin kamera dan penyimpanan kapan saja melalui pengaturan perangkat.</li>
-                    <li>Penolakan izin dapat mengakibatkan beberapa fitur (misalnya upload foto) tidak dapat digunakan.</li>
+                    <li>Penolakan izin akan mengakibatkan fitur absensi tidak dapat digunakan (wajib menggunakan foto sebagai bukti kehadiran).</li>
                 </ul>
                 <p>
                     Foto dan media yang Anda unggah dapat disimpan di server kami atau layanan penyimpanan pihak ketiga yang terintegrasi, dan digunakan untuk mendukung fungsi Aplikasi sesuai dengan ketentuan ini.
@@ -487,6 +504,30 @@
                     <li>Data akun dan profil pengguna disimpan selama akun Anda aktif dan dalam jangka waktu tertentu setelah akun ditutup, sejauh diperlukan untuk kepentingan hukum atau bisnis yang sah.</li>
                     <li>Data aktivitas penggunaan Aplikasi (misalnya riwayat pencarian atau properti favorit) dapat disimpan selama diperlukan untuk tujuan analitik dan peningkatan layanan, atau sampai Anda meminta penghapusannya jika tersedia fitur tersebut.</li>
                     <li>Data log teknis, informasi crash, dan data performa biasanya disimpan dalam periode yang wajar sebagaimana ditentukan oleh penyedia layanan atau kebutuhan teknis kami.</li>
+                </ul>
+
+                <h3>11.1 Retensi Data Wajah & Foto Absensi</h3>
+                <p>
+                    Data wajah dan foto yang diambil untuk keperluan absensi (clock in/clock out) dikelola dengan ketentuan sebagai berikut:
+                </p>
+                <ul>
+                    <li><strong>Jangka waktu penyimpanan:</strong> Foto wajah dan data absensi disimpan selama <strong>2 (dua) tahun</strong> sejak tanggal pencatatan absensi.</li>
+                    <li><strong>Alasan penyimpanan:</strong> Jangka waktu ini diperlukan untuk:
+                        <ul>
+                            <li>Memenuhi kewajiban administrasi dan penggajian perusahaan.</li>
+                            <li>Menyediakan bukti kehadiran yang valid untuk keperluan audit internal dan eksternal.</li>
+                            <li>Memenuhi ketentuan hukum ketenagakerjaan di Indonesia yang mewajibkan penyimpanan data kehadiran karyawan minimal 2 tahun.</li>
+                            <li>Menangani sengketa atau perselisihan terkait kehadiran yang mungkin timbul di kemudian hari.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Penghapusan otomatis:</strong> Setelah jangka waktu 2 tahun berakhir, data wajah dan foto absensi akan dihapus secara permanen dari sistem kami.</li>
+                    <li><strong>Pengecualian:</strong> Data mungkin tetap disimpan lebih lama jika:
+                        <ul>
+                            <li>Diperlukan untuk penyelesaian sengketa hukum atau proses litigasi yang sedang berlangsung.</li>
+                            <li>Diwajibkan oleh perintah pengadilan atau otoritas yang berwenang.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Penyimpanan yang tidak ditentukan (indefinite):</strong> Kami <strong>TIDAK</strong> menyimpan data wajah secara selamanya atau tanpa batas waktu. Semua data wajah akan dihapus setelah periode retensi 2 tahun berakhir.</li>
                 </ul>
                 <p>
                     Setelah jangka waktu retensi berakhir, data pribadi Anda akan dihapus atau dianonimkan sehingga tidak lagi dapat dikaitkan dengan Anda secara langsung.
