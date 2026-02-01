@@ -49,16 +49,16 @@ $(document).ready(function () {
         }
 
         cols.push({
-            data: "status",
+            data: "user_name",
             render: function (data) {
-                return `<code class="text-xs font-bold bg-gray-100 px-2 py-1 rounded text-[#343F56]">${data}</code>`;
+                return `<span class="font-medium text-gray-600">${data || "Unknown"}</span>`;
             },
         });
 
         cols.push({
-            data: "user_name",
+            data: "transaction_note",
             render: function (data) {
-                return `<span class="font-medium text-gray-600">${data || "Unknown"}</span>`;
+                return `<code class="text-xs font-bold bg-gray-100 px-2 py-1 rounded text-[#343F56]">${data}</code>`;
             },
         });
 
