@@ -69,6 +69,7 @@
                                 data-type="daily">
                                 <thead>
                                     <tr>
+                                        <th class="px-6">Date</th>
                                         <th>User</th>
                                         <th class="px-6">Note</th>
                                         <th>Total</th>

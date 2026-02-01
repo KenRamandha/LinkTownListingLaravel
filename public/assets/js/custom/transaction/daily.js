@@ -39,14 +39,14 @@ $(document).ready(function () {
 
     function getColumns(type) {
         const cols = [];
-        if (type === "monthly") {
-            cols.push({
-                data: "transaction_date",
-                render: function (data) {
-                    return `<span class="font-bold text-[#343F56]">${moment(data).format("DD MMM YYYY")}</span>`;
-                },
-            });
-        }
+        // if (type === "monthly") {
+        // }
+        cols.push({
+            data: "transaction_date",
+            render: function (data) {
+                return `<span class="font-bold text-[#343F56]">${moment(data).format("DD MMM YYYY")}</span>`;
+            },
+        });
 
         cols.push({
             data: "user_name",
