@@ -137,7 +137,9 @@
         window.DashboardConfig = {
             homeUrl: "{{ route('home') }}",
             attendanceDataUrl: "{{ route('dashboard.attendance-data') }}",
-            visitDataUrl: "{{ route('dashboard.visit-data') }}"
+            visitDataUrl: "{{ route('dashboard.visit-data') }}",
+            attendanceExportUrl: "{{ route('dashboard.attendance.export') }}",
+            visitExportUrl: "{{ route('dashboard.visit.export') }}"
         };
     </script>
     <script src="{{ asset('assets/js/custom/dashboard/dashboard.js') }}"></script>

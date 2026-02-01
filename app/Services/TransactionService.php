@@ -96,7 +96,7 @@ class TransactionService
             }
         }
 
-        return $query->orderBy('tr_daily_h.transaction_date', 'desc')->get();
+        return $query->orderBy('tr_daily_h.created_at', 'desc')->get();
     }
 
     /**

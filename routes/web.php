@@ -28,6 +28,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/attendance-data', [App\Http\Controllers\Web\DashboardController::class, 'getAttendanceData'])->name('dashboard.attendance-data');
     Route::get('/dashboard/visit-data', [App\Http\Controllers\Web\DashboardController::class, 'getVisitData'])->name('dashboard.visit-data');
 
+    Route::get('/dashboard/attendance/export', [App\Http\Controllers\Web\DashboardController::class, 'exportAttendance'])->name('dashboard.attendance.export');
+    Route::get('/dashboard/visit/export', [App\Http\Controllers\Web\DashboardController::class, 'exportVisit'])->name('dashboard.visit.export');
+
     // user
     Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
     Route::get('/users/add', [UserManagementController::class, 'add'])->name('users.add');

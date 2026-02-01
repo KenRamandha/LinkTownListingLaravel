@@ -192,10 +192,46 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     $("#at-export-btn").on("click", () => {
-        alert("Exporting Attendance CSV...");
+        let userIds = $("#at-user-select").val();
+        let range = atPicker.selectedDates;
+        let startDate, endDate;
+
+        if (range.length === 2) {
+            startDate = moment(range[0]).format("YYYY-MM-DD");
+            endDate = moment(range[1]).format("YYYY-MM-DD");
+        } else {
+            startDate = moment().startOf("month").format("YYYY-MM-DD");
+            endDate = moment().endOf("month").format("YYYY-MM-DD");
+        }
+
+        let queryParams = $.param({
+            user_ids: userIds,
+            start_date: startDate,
+            end_date: endDate,
+        });
+
+        window.location.href = `${config.attendanceExportUrl}?${queryParams}`;
     });
 
     $("#vs-export-btn").on("click", () => {
-        alert("Exporting Visit CSV...");
+        let userIds = $("#vs-user-select").val();
+        let range = vsPicker.selectedDates;
+        let startDate, endDate;
+
+        if (range.length === 2) {
+            startDate = moment(range[0]).format("YYYY-MM-DD");
+            endDate = moment(range[1]).format("YYYY-MM-DD");
+        } else {
+            startDate = moment().startOf("month").format("YYYY-MM-DD");
+            endDate = moment().endOf("month").format("YYYY-MM-DD");
+        }
+
+        let queryParams = $.param({
+            user_ids: userIds,
+            start_date: startDate,
+            end_date: endDate,
+        });
+
+        window.location.href = `${config.visitExportUrl}?${queryParams}`;
     });
 });
