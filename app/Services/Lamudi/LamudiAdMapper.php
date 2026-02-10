@@ -4,10 +4,20 @@ namespace App\Services\Lamudi;
 
 use App\Models\UserProduct\MsProduct;
 use App\Models\UserProduct\MsProductImage;
+use Illuminate\Support\Facades\Log;
 
 class LamudiAdMapper
 {
     private string $publisherId;
+
+    // Facilities that are NOT supported by Proppit API
+    private const UNSUPPORTED_FACILITIES = [
+        'FACILITY-11' => 'Rumah Sakit (Hospital)',
+        'FACILITY-12' => 'Water Park',
+        'FACILITY-13' => 'Culinary Area',
+        'FACILITY-17' => 'Mosque',
+        'FACILITY-18' => 'Bicycle Track',
+    ];
 
     public function __construct()
     {
@@ -20,11 +30,21 @@ class LamudiAdMapper
      * @param MsProduct $product
      * @param array $images
      * @return array
+     * @throws \Exception
      */
     public function mapToLamudiAd(MsProduct $product, array $images = []): array
     {
+        // Validate required fields before mapping
+        $this->validateRequiredFields($product);
+
         $location = $product->locations->first();
         $specification = $product->specification_array ?? [];
+
+        // Validate coordinates
+        $this->validateCoordinates($location);
+
+        // Validate required fields based on property type
+        $this->validateRequiredFieldsByPropertyType($product, $specification);
 
         $ad = [
             'referenceId' => $product->product_id,
@@ -36,11 +56,11 @@ class LamudiAdMapper
             'operations' => $this->mapOperations($product),
             'title' => [
                 'locale' => 'id-ID',
-                'text' => $product->title,
+                'text' => $this->sanitizeText($product->title),
             ],
             'description' => [
                 'locale' => 'id-ID',
-                'text' => $product->description ?? '',
+                'text' => $this->sanitizeText($product->description ?? ''),
             ],
         ];
 
@@ -53,6 +73,217 @@ class LamudiAdMapper
         $ad = array_merge($ad, $this->mapOptionalFields($product, $specification));
 
         return $ad;
+    }
+
+    /**
+     * Preview data that will be sent to Proppit API
+     * Useful for debugging and validation before actual sync
+     *
+     * @param MsProduct $product
+     * @param array $images
+     * @return array
+     */
+    public function previewLamudiAd(MsProduct $product, array $images = []): array
+    {
+        try {
+            $adData = $this->mapToLamudiAd($product, $images);
+
+            // Add validation summary
+            $summary = $this->getValidationSummary($product, $adData);
+
+            return [
+                'success' => true,
+                'data' => $adData,
+                'summary' => $summary,
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Get validation summary for preview
+     */
+    private function getValidationSummary(MsProduct $product, array $adData): array
+    {
+        $summary = [
+            'product_id' => $product->product_id,
+            'has_coordinates' => false,
+            'has_geo_hierarchy' => false,
+            'has_address' => false,
+            'has_images' => false,
+            'has_operations' => false,
+            'has_floor_area' => false,
+            'has_total_area' => false,
+            'amenities_count' => 0,
+            'skipped_facilities' => [],
+        ];
+
+        // Check location data
+        $summary['has_coordinates'] = !empty($adData['property']['location']['coordinates']['lat'])
+            && !empty($adData['property']['location']['coordinates']['long']);
+
+        $summary['has_geo_hierarchy'] = !empty($adData['property']['location']['geo']);
+        $summary['has_address'] = !empty($adData['property']['location']['address']);
+
+        // Check multimedia
+        $summary['has_images'] = !empty($adData['multimedia']['pictures']);
+
+        // Check operations
+        $summary['has_operations'] = !empty($adData['operations']);
+
+        // Check areas
+        $summary['has_floor_area'] = isset($adData['floorArea']);
+        $summary['has_total_area'] = isset($adData['totalArea']);
+
+        // Check amenities
+        $summary['amenities_count'] = count($adData['amenities'] ?? []);
+
+        // Get skipped facilities
+        $facilities = $product->facility_array ?? [];
+        foreach ($facilities as $facility) {
+            if (isset(self::UNSUPPORTED_FACILITIES[$facility])) {
+                $summary['skipped_facilities'][] = [
+                    'code' => $facility,
+                    'name' => self::UNSUPPORTED_FACILITIES[$facility],
+                ];
+            }
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Validate required fields for Proppit API
+     *
+     * @throws \Exception
+     */
+    private function validateRequiredFields(MsProduct $product): void
+    {
+        $errors = [];
+
+        if (empty($product->title)) {
+            $errors[] = 'Title is required';
+        }
+
+        if (empty($product->description)) {
+            $errors[] = 'Description is required';
+        }
+
+        if (empty($product->listing_type)) {
+            $errors[] = 'Listing type is required';
+        }
+
+        if (empty($product->owner_email)) {
+            $errors[] = 'Owner email is required';
+        }
+
+        if (!empty($errors)) {
+            throw new \Exception('Validation failed: ' . implode(', ', $errors));
+        }
+    }
+
+    /**
+     * Validate coordinates are valid for geolocation
+     * Indonesia coordinates range:
+     * - Latitude: -10 to 5
+     * - Longitude: 95 to 141
+     *
+     * @throws \Exception
+     */
+    private function validateCoordinates(?object $location): void
+    {
+        if (!$location) {
+            throw new \Exception('Location data is missing. Please pin the location on the map.');
+        }
+
+        $lat = $location->latitude;
+        $long = $location->longitude;
+
+        // Check if coordinates are not null/empty
+        if ($lat === null || $long === null) {
+            throw new \Exception('Latitude and Longitude are required for Proppit integration.');
+        }
+
+        // Check if coordinates are not zero (invalid default)
+        if (abs($lat) < 0.001 || abs($long) < 0.001) {
+            throw new \Exception('Invalid coordinates (0, 0). Please pin the correct location on the map.');
+        }
+
+        // Validate Indonesia coordinate range (with buffer)
+        if ($lat < -11 || $lat > 6 || $long < 94 || $long > 142) {
+            throw new \Exception(
+                "Coordinates ({$lat}, {$long}) are outside Indonesia range. " .
+                "Please check the location pin on the map."
+            );
+        }
+    }
+
+    /**
+     * Validate required fields based on property type
+     * Proppit API requirements:
+     * - floorArea MANDATORY for all types except "land"
+     * - totalArea MANDATORY for "land"
+     *
+     * @throws \Exception
+     */
+    private function validateRequiredFieldsByPropertyType(MsProduct $product, ?array $specification): void
+    {
+        $propertyType = $this->mapPropertyType($product->product_type);
+        $errors = [];
+
+        // Parse specification for validation
+        $parsed = [];
+        if (!empty($specification)) {
+            foreach ($specification as $key => $value) {
+                // SPEC codes
+                if ($key === 'SPEC-1' || $key === 'Luas Tanah' || $key === 'LT') {
+                    $parsed['land_area'] = $value;
+                }
+                if ($key === 'SPEC-2' || $key === 'Luas Bangunan' || $key === 'LB') {
+                    $parsed['building_area'] = $value;
+                }
+            }
+        }
+
+        // floorArea MANDATORY untuk semua tipe kecuali "land"
+        if ($propertyType !== 'land') {
+            $buildingArea = $parsed['building_area'] ?? null;
+            if (empty($buildingArea) || (float) $buildingArea <= 0) {
+                $errors[] = "Luas Bangunan (Building Area) wajib diisi untuk tipe properti {$propertyType}";
+            }
+        }
+
+        // totalArea MANDATORY untuk "land"
+        if ($propertyType === 'land') {
+            $landArea = $parsed['land_area'] ?? null;
+            if (empty($landArea) || (float) $landArea <= 0) {
+                $errors[] = "Luas Tanah (Land Area) wajib diisi untuk tanah";
+            }
+        }
+
+        if (!empty($errors)) {
+            throw new \Exception('Validation failed: ' . implode(', ', $errors));
+        }
+    }
+
+    /**
+     * Sanitize text to remove invalid characters
+     */
+    private function sanitizeText(?string $text): string
+    {
+        if ($text === null) {
+            return '';
+        }
+
+        // Remove null bytes and other problematic characters
+        $text = str_replace(["\0", "\r\n", "\r"], "\n", $text);
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text);
+
+        return trim($text);
     }
 
     /**
@@ -80,18 +311,58 @@ class LamudiAdMapper
      */
     private function mapProperty(MsProduct $product, ?object $location, ?array $specification): array
     {
+        // Validate and get coordinates
+        $lat = $location?->latitude;
+        $long = $location?->longitude;
+
+        // Build geo hierarchy array for Proppit geolocation
+        $geo = [];
+
+        // Add province (administrative_area_level_1)
+        if (!empty($product->province)) {
+            $geo[] = [
+                'name' => $product->province,
+                'level' => 'administrative_area_level_1',
+            ];
+        }
+
+        // Add city (locality)
+        if (!empty($product->city)) {
+            $geo[] = [
+                'name' => $product->city,
+                'level' => 'locality',
+            ];
+        }
+
+        // Add area (sublocality_level_1 or neighborhood)
+        if (!empty($product->area)) {
+            $geo[] = [
+                'name' => $product->area,
+                'level' => 'sublocality_level_1',
+            ];
+        }
+
         $property = [
             'type' => $this->mapPropertyType($product->product_type),
             'location' => [
                 'countryCode' => 'ID',
                 'visibility' => 'accurate',
                 'coordinates' => [
-                    'lat' => $location?->latitude,
-                    'long' => $location?->longitude,
+                    'lat' => $lat,
+                    'long' => $long,
                 ],
-                'address' => $product->address,
             ],
         ];
+
+        // Add geo array for geolocation (REQUIRED by Proppit API)
+        if (!empty($geo)) {
+            $property['location']['geo'] = $geo;
+        }
+
+        // Add address if exists
+        if (!empty($product->address)) {
+            $property['location']['address'] = $product->address;
+        }
 
         // Add floor if exists in specification
         if (isset($specification['floor'])) {
@@ -141,23 +412,37 @@ class LamudiAdMapper
 
     /**
      * Map multimedia (images)
+     * DISPLAY images → pictures
+     * LAYOUT images → floorPlans (NOT in pictures)
      */
     private function mapMultimedia(array $images): array
     {
-        $multimedia = ['pictures' => []];
+        $multimedia = [];
 
-        foreach ($images as $image) {
-            $url = $image['url'];
-            if (filter_var($url, FILTER_VALIDATE_URL)) {
-                $multimedia['pictures'][] = ['url' => $url];
+        // Separate DISPLAY and LAYOUT images
+        $displayImages = array_filter($images, fn($img) =>
+            !isset($img['type']) || $img['type'] !== 'LAYOUT'
+        );
+
+        $layoutImages = array_filter($images, fn($img) =>
+            isset($img['type']) && $img['type'] === 'LAYOUT'
+        );
+
+        // Add DISPLAY images to pictures
+        if (!empty($displayImages)) {
+            $multimedia['pictures'] = [];
+            foreach ($displayImages as $image) {
+                $url = $image['url'];
+                if (filter_var($url, FILTER_VALIDATE_URL)) {
+                    $multimedia['pictures'][] = ['url' => $url];
+                }
             }
         }
 
-        // Add floor plans if layout images exist
-        $floorPlans = array_filter($images, fn($img) => isset($img['type']) && $img['type'] === 'LAYOUT');
-        if (!empty($floorPlans)) {
+        // Add LAYOUT images to floorPlans
+        if (!empty($layoutImages)) {
             $multimedia['floorPlans'] = [];
-            foreach ($floorPlans as $floorPlan) {
+            foreach ($layoutImages as $floorPlan) {
                 if (filter_var($floorPlan['url'], FILTER_VALIDATE_URL)) {
                     $multimedia['floorPlans'][] = ['url' => $floorPlan['url']];
                 }
@@ -200,6 +485,14 @@ class LamudiAdMapper
             ];
         }
 
+        // Map usable area (Luas Lain / semi-gross)
+        if (!empty($specMapping['usable_area'])) {
+            $fields['usableArea'] = [
+                'value' => (float) $specMapping['usable_area'],
+                'unit' => 'sqm',
+            ];
+        }
+
         // Map bedrooms (Kamar Tidur / SPEC-4)
         if (!empty($specMapping['bedrooms'])) {
             $fields['bedrooms'] = (int) $specMapping['bedrooms'];
@@ -208,6 +501,22 @@ class LamudiAdMapper
         // Map bathrooms (Kamar Mandi / SPEC-3)
         if (!empty($specMapping['bathrooms'])) {
             $fields['bathrooms'] = (int) $specMapping['bathrooms'];
+        }
+
+        // Map half bathrooms (Kamar Mandi Pembantu)
+        if (!empty($specMapping['half_bathrooms']) || !empty($specMapping['powder_room'])) {
+            $halfBath = (int) ($specMapping['half_bathrooms'] ?? $specMapping['powder_room'] ?? 0);
+            if ($halfBath > 0) {
+                $fields['halfBathrooms'] = $halfBath;
+            }
+        }
+
+        // Map parking spaces (Carport + Garage)
+        $carport = (int) ($specMapping['carport'] ?? 0);
+        $garage = (int) ($specMapping['garage'] ?? 0);
+        $totalParking = $carport + $garage;
+        if ($totalParking > 0) {
+            $fields['parkingSpaces'] = $totalParking;
         }
 
         // Map condition
@@ -261,11 +570,16 @@ class LamudiAdMapper
             'Kamar Tidur' => 'bedrooms',
             'KT' => 'bedrooms',
             'Carport' => 'carport',
+            'Garasi' => 'garage',
             'Garage' => 'garage',
             'Dibangun Tahun' => 'year_built',
             'Tahun Dibangun' => 'year_built',
             'Lantai' => 'floor',
             'Furnished' => 'furnished',
+            'Luas Lain' => 'usable_area',
+            'Semi Gross' => 'usable_area',
+            'Kamar Mandi Pembantu' => 'half_bathrooms',
+            'Powder Room' => 'powder_room',
         ];
 
         foreach ($specification as $key => $value) {
@@ -349,68 +663,109 @@ class LamudiAdMapper
      */
     private function mapFacilities(array $facilities): array
     {
-        // FACILITY codes mapping from database
+        // Valid Lamudi amenities (based on API enum)
+        $validAmenities = [
+            'air conditioning', 'alarm', 'balcony', 'bathtub', 'built-in wardrobe',
+            'car park', 'cctv', 'ceiling fan', 'cellar', 'children\'s area',
+            'cleaning room', 'concierge', 'daylighting', 'disabled access',
+            'electricity', 'equipped bathroom', 'equipped kitchen', 'exterior',
+            'fireplace', 'garden', 'green area', 'grill', 'guardhouse', 'gym',
+            'heating', 'integral kitchen', 'intercom', 'internet', 'jacuzzi',
+            'library', 'lift', 'multiuse room', 'natural gas', 'office',
+            'panoramic view', 'roof garden', 'sauna', 'security', 'security door',
+            'semi-detached', 'service room', 'shower', 'storage room',
+            'swimming pool', 'tennis court', 'terrace', 'tv', 'video cable',
+            'water', 'water tank', 'yard', 'badminton court', 'basketball court',
+            'club house', 'deck', 'drying area', 'ensuite', 'entertainment room',
+            'fire alarm', 'fire exits', 'fire sprinkler system', 'fully fenced',
+            'function area', 'gazebo', 'jogging path', 'lanai', 'lounge',
+            'multi purpose lawn', 'open space', 'powder room', 'shops',
+            'shower rooms', 'smoke detector', 'spa', 'sports facilities',
+            'wi-fi', 'twenty four hour security', 'secure parking',
+            'outdoor entertaining area', 'hot water', 'telephone', 'pay tv access'
+        ];
+
+        // FACILITY codes mapping from database to valid Lamudi amenities
         $facilityCodeMapping = [
-            'FACILITY-1' => 'swimming pool',      // Kolam Renang
-            'FACILITY-2' => 'jogging track',      // Jogging Track
-            'FACILITY-3' => 'playground',         // Playground
-            'FACILITY-4' => 'clubhouse',
-            'FACILITY-5' => '24 hours security',  // Security 24 Jam
-            'FACILITY-6' => 'one gate system',
-            'FACILITY-7' => 'gym',                // Gym
-            'FACILITY-8' => 'garden',             // Taman
+            'FACILITY-1' => 'swimming pool',           // Kolam Renang
+            'FACILITY-2' => 'jogging path',            // Jogging Track (invalid: jogging track)
+            'FACILITY-3' => 'children\'s area',        // Playground
+            'FACILITY-4' => 'club house',              // Clubhouse
+            'FACILITY-5' => 'twenty four hour security', // Security 24 Jam (invalid: 24 hours security)
+            'FACILITY-6' => 'guardhouse',              // One Gate System
+            'FACILITY-7' => 'gym',                     // Gym
+            'FACILITY-8' => 'garden',                  // Taman
             'FACILITY-9' => 'basketball court',
-            'FACILITY-10' => 'commercial',        // Pasar
-            'FACILITY-11' => 'nearby hospital',   // Rumah Sakit
-            'FACILITY-12' => 'water park',
-            'FACILITY-13' => 'culinary area',     // Culinary Area
-            'FACILITY-14' => 'garden',            // Green Park
-            'FACILITY-15' => 'lake view',
-            'FACILITY-16' => 'multifunction room',
-            'FACILITY-17' => 'mosque',
-            'FACILITY-18' => 'bicycle track',
+            'FACILITY-10' => 'shops',                  // Pasar
+            'FACILITY-11' => null,                     // Rumah Sakit (not supported)
+            'FACILITY-12' => null,                     // Water Park (not supported)
+            'FACILITY-13' => null,                     // Culinary Area (not supported)
+            'FACILITY-14' => 'green area',             // Green Park
+            'FACILITY-15' => 'panoramic view',         // Lake View
+            'FACILITY-16' => 'multiuse room',          // Multifunction Room
+            'FACILITY-17' => null,                     // Mosque (not supported)
+            'FACILITY-18' => null,                     // Bicycle Track (not supported)
             'FACILITY-19' => 'tennis court',
             'FACILITY-20' => 'badminton court',
         ];
 
-        // Indonesian text mapping
+        // Indonesian text mapping to valid Lamudi amenities
         $textMapping = [
             'Kolam Renang' => 'swimming pool',
-            'Jogging Track' => 'jogging track',
-            'Playground' => 'playground',
-            'Clubhouse' => 'clubhouse',
-            'Security 24 Jam' => '24 hours security',
-            'One Gate System' => 'one gate system',
+            'Jogging Track' => 'jogging path',
+            'Playground' => 'children\'s area',
+            'Clubhouse' => 'club house',
+            'Security 24 Jam' => 'twenty four hour security',
+            'One Gate System' => 'guardhouse',
             'Gym' => 'gym',
             'Taman' => 'garden',
             'Basketball Court' => 'basketball court',
-            'Pasar' => 'commercial',
-            'Rumah Sakit' => 'nearby hospital',
-            'Water Park' => 'water park',
-            'Culinary Area' => 'culinary area',
-            'Green Park' => 'garden',
-            'Lake View' => 'lake view',
-            'Multifunction Room' => 'multifunction room',
-            'Mosque' => 'mosque',
-            'Bicycle Track' => 'bicycle track',
+            'Pasar' => 'shops',
+            'Rumah Sakit' => null,
+            'Water Park' => null,
+            'Culinary Area' => null,
+            'Green Park' => 'green area',
+            'Lake View' => 'panoramic view',
+            'Multifunction Room' => 'multiuse room',
+            'Mosque' => null,
+            'Bicycle Track' => null,
             'Tennis Court' => 'tennis court',
             'Badminton Court' => 'badminton court',
         ];
 
         $amenities = [];
+        $skipped = [];
+
         foreach ($facilities as $facility) {
+            $mapped = null;
+
             // Check if facility is a FACILITY code
             if (isset($facilityCodeMapping[$facility])) {
-                $amenities[] = $facilityCodeMapping[$facility];
+                $mapped = $facilityCodeMapping[$facility];
             }
             // Check if facility is Indonesian text
             elseif (isset($textMapping[$facility])) {
-                $amenities[] = $textMapping[$facility];
+                $mapped = $textMapping[$facility];
             }
-            // Direct text as-is
-            else {
-                $amenities[] = $facility;
+            // Check if direct text is a valid amenity
+            elseif (in_array(strtolower($facility), $validAmenities)) {
+                $mapped = strtolower($facility);
             }
+
+            // Only add if mapped and not null
+            if ($mapped) {
+                $amenities[] = $mapped;
+            } else {
+                $skipped[] = $facility;
+            }
+        }
+
+        // Log warning for skipped facilities
+        if (!empty($skipped)) {
+            Log::warning('Some facilities are not supported by Proppit API and will be skipped', [
+                'skipped_facilities' => $skipped,
+                'unsupported_count' => count($skipped),
+            ]);
         }
 
         return array_values(array_unique($amenities));

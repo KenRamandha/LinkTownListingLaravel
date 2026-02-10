@@ -76,6 +76,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user_product/{product_id}', [UserProductController::class, 'show']);
     Route::put('/user_product/{product_id}', [UserProductController::class, 'update']);
     Route::put('/user_product/{product_id}/publish', [UserProductController::class, 'publish']);
+    Route::get('/user_product/{product_id}/lamudi/preview', [UserProductController::class, 'lamudiPreview']);
+    Route::delete('/user_product/{product_id}', [UserProductController::class, 'destroy']);
     Route::delete('/user_product/images/{image_id}', [UserProductController::class, 'deleteImage']);
 
     Route::post('/attendance/clock', [AttendanceController::class, 'clock']);

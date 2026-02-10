@@ -37,9 +37,9 @@ return [
 
     'lamudi' => [
         'base_url' => env('LAMUDI_BASE_URL', 'https://real-time.proppit.com/api/v2'),
-        'user' => env('LAMUDI_API_USER'),
-        'password' => env('LAMUDI_API_PASSWORD'),
-        'publisher_id' => env('LAMUDI_PUBLISHER_ID'),
+        'user' => env('LAMUDI_API_USER', ''),
+        'password' => env('LAMUDI_API_PASSWORD', ''),
+        'publisher_id' => env('LAMUDI_PUBLISHER_ID', ''),
         'country' => env('LAMUDI_COUNTRY', 'ID'),
     ],
 
