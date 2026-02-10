@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\UserProduct;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SyncToLamudiJob;
 use App\Models\UserProduct\MsProduct;
 use App\Models\UserProduct\MsProductImage;
 use App\Models\UserProduct\MsProductLocation;
+use App\Services\Lamudi\LamudiAdMapper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -92,6 +95,49 @@ class UserProductController extends Controller
             'display_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
             'layout_images' => 'nullable|array|max:10',
             'layout_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+        ];
+    }
+
+    // Get custom validation messages for product
+    private function getValidationMessages(): array
+    {
+        return [
+            'title.required' => 'Judul properti (Title) wajib diisi',
+            'title.max' => 'Judul properti maksimal 255 karakter',
+            'description.string' => 'Deskripsi properti harus berupa teks',
+            'condition.exists' => 'Kondisi properti tidak valid',
+            'product_type.exists' => 'Tipe properti tidak valid',
+            'legal.exists' => 'Status legal tidak valid',
+            'label.*.exists' => 'Label tidak valid',
+            'developer.max' => 'Nama developer maksimal 255 karakter',
+            'owner_email.email' => 'Format email pemilik tidak valid. Contoh: nama@email.com',
+            'owner_email.max' => 'Email pemilik maksimal 100 karakter',
+            'owner_name.max' => 'Nama pemilik maksimal 100 karakter',
+            'owner_phone.max' => 'Nomor telepon pemilik maksimal 20 karakter',
+            'user_name.max' => 'Nama kontak maksimal 100 karakter',
+            'user_phone.max' => 'Nomor telepon kontak maksimal 20 karakter',
+            'listing_type.exists' => 'Tipe listing tidak valid',
+            'selling_price.numeric' => 'Harga jual harus berupa angka',
+            'rental_price.numeric' => 'Harga sewa harus berupa angka',
+            'commission_selling_percentage.numeric' => 'Komisi jual harus berupa angka',
+            'commission_selling_percentage.min' => 'Komisi jual minimal 0%',
+            'commission_selling_percentage.max' => 'Komisi jual maksimal 100%',
+            'commission_rent_percentage.numeric' => 'Komisi sewa harus berupa angka',
+            'commission_rent_percentage.min' => 'Komisi sewa minimal 0%',
+            'commission_rent_percentage.max' => 'Komisi sewa maksimal 100%',
+            'location.latitude.numeric' => 'Latitude harus berupa angka (contoh: -6.2088)',
+            'location.longitude.numeric' => 'Longitude harus berupa angka (contoh: 106.8456)',
+            'main_image.image' => 'File utama harus berupa gambar',
+            'main_image.mimes' => 'Format gambar utama harus: jpeg, png, jpg, atau webp',
+            'main_image.max' => 'Ukuran gambar utama maksimal 5MB',
+            'display_images.max' => 'Maksimal 10 foto tampil',
+            'display_images.*.image' => 'File harus berupa gambar',
+            'display_images.*.mimes' => 'Format foto harus: jpeg, png, jpg, atau webp',
+            'display_images.*.max' => 'Ukuran foto maksimal 5MB',
+            'layout_images.max' => 'Maksimal 10 foto denah',
+            'layout_images.*.image' => 'File harus berupa gambar',
+            'layout_images.*.mimes' => 'Format foto denah harus: jpeg, png, jpg, atau webp',
+            'layout_images.*.max' => 'Ukuran foto denah maksimal 5MB',
         ];
     }
 
@@ -299,13 +345,20 @@ class UserProductController extends Controller
     // POST /api/user_product - Simpan produk baru (draft/publish)
     public function store(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), $this->getValidationRules());
+        $validator = Validator::make(
+            $request->all(),
+            $this->getValidationRules(),
+            $this->getValidationMessages()
+        );
 
         if ($validator->fails()) {
+            $errors = $validator->errors()->all();
+            // Ambil hanya error pertama
+            $firstError = $errors[0] ?? 'Validasi gagal';
+
             return response()->json([
                 'success' => false,
-                'message' => 'Validasi gagal',
-                'errors' => $validator->errors(),
+                'message' => $firstError,
             ], 422);
         }
 
@@ -354,6 +407,7 @@ class UserProductController extends Controller
                 ),
                 'rental_terms' => $request->input('rental_terms'),
                 'status' => $request->input('status', 'Draft'),
+                'lamudi_sync_status' => 'pending',
                 'created_by' => $createdBy,
             ]);
 
@@ -373,12 +427,18 @@ class UserProductController extends Controller
 
             DB::commit();
 
+            // Sync to Lamudi if published directly
+            if ($product->status === 'Publish') {
+                $this->syncToLamudi($product, 'auto');
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Produk berhasil disimpan',
                 'data' => [
                     'product_id' => $productId,
                     'status' => $product->status,
+                    'lamudi_sync_status' => $product->lamudi_sync_status,
                 ],
             ], 201);
         } catch (Throwable $e) {
@@ -477,13 +537,20 @@ class UserProductController extends Controller
             ], 404);
         }
 
-        $validator = Validator::make($request->all(), $this->getValidationRules(true));
+        $validator = Validator::make(
+            $request->all(),
+            $this->getValidationRules(true),
+            $this->getValidationMessages()
+        );
 
         if ($validator->fails()) {
+            $errors = $validator->errors()->all();
+            // Ambil hanya error pertama
+            $firstError = $errors[0] ?? 'Validasi gagal';
+
             return response()->json([
                 'success' => false,
-                'message' => 'Validasi gagal',
-                'errors' => $validator->errors(),
+                'message' => $firstError,
             ], 422);
         }
 
@@ -492,6 +559,10 @@ class UserProductController extends Controller
 
             $user = $request->user();
             $updatedBy = $user?->id;
+
+            // Track status change for Lamudi sync
+            $oldStatus = $product->status;
+            $newStatus = $request->input('status', $product->status);
 
             $product->update([
                 'title' => $request->input('title', $product->title),
@@ -530,7 +601,7 @@ class UserProductController extends Controller
                     $request->input('commission_rent_percentage', $product->commission_rent_percentage)
                 ),
                 'rental_terms' => $request->input('rental_terms', $product->rental_terms),
-                'status' => $request->input('status', $product->status),
+                'status' => $newStatus,
                 'update_by' => $updatedBy,
             ]);
 
@@ -562,12 +633,33 @@ class UserProductController extends Controller
 
             DB::commit();
 
+            // Sync to Lamudi based on different scenarios
+            if ($newStatus === 'Publish') {
+                // Scenario 1: Status changed from Draft to Publish -> sync
+                if ($oldStatus === 'Draft') {
+                    $this->syncToLamudi($product, 'auto');
+                }
+                // Scenario 2: Already published, and synced -> sync on every update
+                elseif ($product->isSyncedWithLamudi()) {
+                    $this->syncToLamudi($product, 'update');
+                }
+                // Scenario 3: Already published, but sync failed -> retry
+                elseif ($product->shouldRetryLamudiSync()) {
+                    $this->syncToLamudi($product, 'retry');
+                }
+                // Scenario 4: First time publishing without sync -> sync now
+                elseif (empty($product->lamudi_sync_status) || $product->lamudi_sync_status === 'pending') {
+                    $this->syncToLamudi($product, 'auto');
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Produk berhasil diperbarui',
                 'data' => [
                     'product_id' => $product->product_id,
                     'status' => $product->status,
+                    'lamudi_sync_status' => $product->lamudi_sync_status,
                 ],
             ]);
         } catch (Throwable $e) {
@@ -596,70 +688,90 @@ class UserProductController extends Controller
         $errors = [];
 
         if (empty($product->title)) {
-            $errors[] = 'Title tidak boleh kosong';
+            $errors[] = 'Judul properti (Title) belum diisi';
         }
 
         if (empty($product->description) || strlen($product->description) < 20) {
-            $errors[] = 'Description minimal 20 karakter';
+            $errors[] = 'Deskripsi properti (Description) minimal 20 karakter';
         }
 
         if (empty($product->condition)) {
-            $errors[] = 'Condition tidak boleh kosong';
+            $errors[] = 'Kondisi properti (Condition) belum dipilih';
         }
 
         if (empty($product->product_type)) {
-            $errors[] = 'Product Type tidak boleh kosong';
+            $errors[] = 'Tipe properti (Property Type) belum dipilih';
         }
 
         if (empty($product->province)) {
-            $errors[] = 'Province tidak boleh kosong';
+            $errors[] = 'Provinsi belum dipilih';
         }
 
         if (empty($product->address)) {
-            $errors[] = 'Address tidak boleh kosong';
+            $errors[] = 'Alamat lengkap properti (Address) belum diisi';
         }
 
         if (empty($product->owner_name)) {
-            $errors[] = 'Owner Name tidak boleh kosong';
+            $errors[] = 'Nama pemilik (Owner Name) belum diisi';
         }
 
         if (empty($product->owner_phone)) {
-            $errors[] = 'Owner Phone tidak boleh kosong';
+            $errors[] = 'Nomor telepon pemilik (Owner Phone) belum diisi';
         }
 
         if (empty($product->user_name)) {
-            $errors[] = 'User Name tidak boleh kosong';
+            $errors[] = 'Nama kontak (User Name) belum diisi';
         }
 
         if (empty($product->user_phone)) {
-            $errors[] = 'User Phone tidak boleh kosong';
+            $errors[] = 'Nomor telepon kontak (User Phone) belum diisi';
         }
 
         if (empty($product->listing_type)) {
-            $errors[] = 'Listing Type tidak boleh kosong';
+            $errors[] = 'Tipe listing (Listing Type) belum dipilih. Pilih "Jual" atau "Sewa"';
+        }
+
+        // Validasi coordinates (WAJIB untuk integrasi Lamudi)
+        $location = $product->locations->first();
+        if (!$location || empty($location->latitude) || empty($location->longitude)) {
+            $errors[] = 'Lokasi properti di peta (Latitude & Longitude) belum lengkap. Silakan pin lokasi di peta saat edit produk.';
+        }
+
+        // Validasi owner email (WAJIB untuk integrasi Lamudi)
+        if (empty($product->owner_email)) {
+            $errors[] = 'Email pemilik properti (Owner Email) belum diisi. Wajib untuk notifikasi';
         }
 
         // Check if at least 1 display image exists
         $displayImageCount = $product->displayImages()->count();
         if ($displayImageCount < 1) {
-            $errors[] = 'Minimal 1 foto display diperlukan';
+            $errors[] = 'Belum ada foto properti. Minimal upload 1 foto tampil (Display Image)';
         }
 
         if (!empty($errors)) {
+            // Ambil hanya error pertama
+            $firstError = $errors[0] ?? 'Validasi gagal';
+
             return response()->json([
                 'success' => false,
-                'message' => 'Validasi gagal untuk publish',
-                'errors' => $errors,
+                'message' => $firstError,
             ], 422);
         }
 
         try {
             $user = $request->user();
-            
+
             $product->update([
                 'status' => 'Publish',
+                'lamudi_sync_status' => $product->lamudi_sync_status ?? 'pending',
                 'update_by' => $user?->id,
             ]);
+
+            // Sync to Lamudi
+            $this->syncToLamudi($product, 'manual');
+
+            // Note: Not refreshing product as sync is now async
+            // The status will be updated by the job in the background
 
             return response()->json([
                 'success' => true,
@@ -667,6 +779,7 @@ class UserProductController extends Controller
                 'data' => [
                     'product_id' => $product->product_id,
                     'status' => 'Publish',
+                    'lamudi_sync_status' => $product->lamudi_sync_status,
                 ],
             ]);
         } catch (Throwable $e) {
@@ -676,6 +789,21 @@ class UserProductController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Sync product to Lamudi via Queue
+     * Dispatches job to background queue for async processing
+     */
+    private function syncToLamudi(MsProduct $product, string $action = 'auto'): void
+    {
+        // Dispatch job to queue for async processing
+        SyncToLamudiJob::dispatch($product->product_id, $action);
+
+        Log::info('Lamudi sync job dispatched', [
+            'product_id' => $product->product_id,
+            'action' => $action,
+        ]);
     }
 
     // DELETE /api/user_product/images/{image_id} - Hapus gambar produk specific
@@ -720,5 +848,129 @@ class UserProductController extends Controller
         $path = ltrim($path, '/');
 
         return asset($path);
+    }
+
+    /**
+     * GET /api/user_product/{product_id}/lamudi/preview
+     * Preview data yang akan dikirim ke Proppit/Lamudi
+     * Berguna untuk debugging dan validasi sebelum sync
+     */
+    public function lamudiPreview(string $productId): JsonResponse
+    {
+        $product = MsProduct::where('product_id', $productId)->first();
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Produk tidak ditemukan',
+            ], 404);
+        }
+
+        try {
+            $mapper = new LamudiAdMapper();
+
+            // Prepare images for Lamudi
+            $displayImages = $product->displayImages()->get()->map(function ($img) {
+                return [
+                    'url' => $this->publicUrl($img->url),
+                    'type' => 'DISPLAY',
+                ];
+            })->toArray();
+
+            $layoutImages = $product->layoutImages()->get()->map(function ($img) {
+                return [
+                    'url' => $this->publicUrl($img->url),
+                    'type' => 'LAYOUT',
+                ];
+            })->toArray();
+
+            $allImages = array_merge($displayImages, $layoutImages);
+
+            // Get preview data
+            $preview = $mapper->previewLamudiAd($product, $allImages);
+
+            if (!$preview['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal mempersiapkan data Lamudi',
+                    'error' => $preview['error'] ?? 'Unknown error',
+                ], 400);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Preview data Lamudi berhasil diambil',
+                'data' => $preview['data'],
+                'summary' => $preview['summary'],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mempersiapkan preview data',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * DELETE /api/user_product/{product_id}
+     * Delete product and remove from Proppit if synced
+     */
+    public function destroy(string $productId): JsonResponse
+    {
+        $product = MsProduct::where('product_id', $productId)->first();
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Produk tidak ditemukan',
+            ], 404);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Delete from Proppit if synced
+            if ($product->isSyncedWithLamudi() && !empty($product->lamudi_reference_id)) {
+                try {
+                    $lamudiService = new \App\Services\Lamudi\LamudiService();
+                    $lamudiService->deleteAd(
+                        $product->lamudi_reference_id,
+                        ['externalId' => config('services.lamudi.publisher_id')]
+                    );
+                    Log::info('Lamudi ad deleted', [
+                        'product_id' => $product->product_id,
+                        'reference_id' => $product->lamudi_reference_id,
+                    ]);
+                } catch (\Exception $e) {
+                    // Log warning but don't prevent deletion
+                    Log::warning('Failed to delete from Lamudi, continuing with local deletion', [
+                        'product_id' => $product->product_id,
+                        'reference_id' => $product->lamudi_reference_id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            // Delete product images from storage
+            $this->deleteProductImages($productId);
+
+            // Delete product
+            $product->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Produk berhasil dihapus' . ($product->isSyncedWithLamudi() ? ' (termasuk dari Proppit)' : ''),
+            ]);
+        } catch (Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus produk',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

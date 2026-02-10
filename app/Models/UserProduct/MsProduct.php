@@ -11,6 +11,16 @@ class MsProduct extends Model
 {
     protected $table = 'tr_product';
 
+    /**
+     * The primary key for the model.
+     */
+    protected $primaryKey = 'product_id';
+
+    /**
+     * The "type" of the auto-incrementing ID.
+     */
+    public $incrementing = false;
+
     protected $fillable = [
         'product_id',
         'title',
@@ -46,6 +56,11 @@ class MsProduct extends Model
         'status',
         'created_by',
         'update_by',
+        // Lamudi integration fields
+        'lamudi_reference_id',
+        'lamudi_synced_at',
+        'lamudi_sync_status',
+        'lamudi_error_message',
     ];
 
     protected $casts = [
@@ -57,6 +72,7 @@ class MsProduct extends Model
         'commission_rent_price' => 'decimal:2',
         'agreement_date' => 'date',
         'expired_date' => 'date',
+        'lamudi_synced_at' => 'datetime',
     ];
 
     public function getRouteKeyName(): string
@@ -184,5 +200,119 @@ class MsProduct extends Model
     public function creator()
     {
         return $this->belongsTo(\App\Models\Core\User::class, 'created_by');
+    }
+
+    // Lamudi integration helper methods
+
+    /**
+     * Check if product is synced with Lamudi
+     */
+    public function isSyncedWithLamudi(): bool
+    {
+        return !empty($this->lamudi_reference_id) && $this->lamudi_sync_status === 'synced';
+    }
+
+    /**
+     * Check if Lamudi sync is pending
+     */
+    public function isLamudiSyncPending(): bool
+    {
+        return $this->lamudi_sync_status === 'pending';
+    }
+
+    /**
+     * Check if Lamudi sync failed
+     */
+    public function isLamudiSyncFailed(): bool
+    {
+        return $this->lamudi_sync_status === 'failed';
+    }
+
+    /**
+     * Mark product as synced with Lamudi
+     */
+    public function markAsLamudiSynced(string $referenceId): void
+    {
+        $this->update([
+            'lamudi_reference_id' => $referenceId,
+            'lamudi_sync_status' => 'synced',
+            'lamudi_synced_at' => now(),
+            'lamudi_error_message' => null,
+        ]);
+    }
+
+    /**
+     * Mark product as Lamudi sync failed
+     * Updates all lamudi columns with failed status
+     */
+    public function markAsLamudiFailed(string $errorMessage): void
+    {
+        $this->update([
+            'lamudi_reference_id' => null,
+            'lamudi_sync_status' => 'failed',
+            'lamudi_synced_at' => now(),
+            'lamudi_error_message' => $errorMessage,
+        ]);
+    }
+
+    /**
+     * Reset Lamudi sync status to pending
+     */
+    public function resetLamudiSync(): void
+    {
+        $this->update([
+            'lamudi_reference_id' => null,
+            'lamudi_sync_status' => 'pending',
+            'lamudi_synced_at' => null,
+            'lamudi_error_message' => null,
+        ]);
+    }
+
+    /**
+     * Check if product should retry Lamudi sync
+     * Returns true if sync failed and product is published
+     */
+    public function shouldRetryLamudiSync(): bool
+    {
+        return $this->lamudi_sync_status === 'failed'
+            && $this->status === 'Publish';
+    }
+
+    /**
+     * Check if Lamudi sync is stale (needs refresh)
+     * Returns true if last sync was more than 24 hours ago
+     */
+    public function isLamudiSyncStale(): bool
+    {
+        if (!$this->lamudi_synced_at || $this->lamudi_sync_status !== 'synced') {
+            return false;
+        }
+
+        return $this->lamudi_synced_at->lt(now()->subHours(24));
+    }
+
+    /**
+     * Scope: Get products that need Lamudi sync retry
+     */
+    public function scopeNeedsLamudiRetry($query)
+    {
+        return $query->where('status', 'Publish')
+            ->where('lamudi_sync_status', 'failed');
+    }
+
+    /**
+     * Scope: Get products that are synced with Lamudi
+     */
+    public function scopeLamudiSynced($query)
+    {
+        return $query->where('lamudi_sync_status', 'synced');
+    }
+
+    /**
+     * Scope: Get products with failed Lamudi sync
+     */
+    public function scopeLamudiFailed($query)
+    {
+        return $query->where('lamudi_sync_status', 'failed');
     }
 }
