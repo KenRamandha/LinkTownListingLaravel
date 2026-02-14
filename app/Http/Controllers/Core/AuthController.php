@@ -148,6 +148,39 @@ class AuthController extends Controller
         }
     }
 
+    public function changePassword(Request $r)
+    {
+        try {
+            $user = $r->user();
+            if (!$user) {
+                return $this->fail('Unauthenticated', 401, 'UNAUTHENTICATED');
+            }
+
+            $r->validate([
+                'old_password' => 'required|string',
+                'new_password' => 'required|string|min:8|confirmed',
+            ]);
+
+            if (!Hash::check($r->old_password, $user->password)) {
+                throw ValidationException::withMessages([
+                    'old_password' => ['Password lama tidak sesuai']
+                ]);
+            }
+
+            $user->password = Hash::make($r->new_password);
+            $user->save();
+
+            $user->tokens()->where('id', '!=', $r->user()->currentAccessToken()->id)->delete();
+
+            return $this->ok(null, 'Password berhasil diubah');
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            report($e);
+            return $this->fail('Gagal mengubah password', 500, 'SERVER_ERROR');
+        }
+    }
+
     private function tokenExpiry(): Carbon
     {
         $days = (int) env('ACCESS_TOKEN_TTL_DAYS', self::DEFAULT_TOKEN_TTL_DAYS);

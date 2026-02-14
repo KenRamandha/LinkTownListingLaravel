@@ -62,6 +62,7 @@ Route::middleware('optional.auth')->group(function () {
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 Route::post('/auth/refresh', [AuthController::class, 'refresh'])->middleware('auth:sanctum');
+Route::post('/auth/change-password', [AuthController::class, 'changePassword'])->middleware('auth:sanctum');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [MeController::class, 'show']);
