@@ -37,6 +37,11 @@ class MsProductImage extends Model
         return $query->where('image_type', 'LAYOUT');
     }
 
+    public function scopeBrochure($query)
+    {
+        return $query->where('image_type', 'BROCHURE');
+    }
+
     public function scopeMain($query)
     {
         return $query->where('main', 1);

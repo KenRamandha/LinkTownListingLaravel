@@ -95,6 +95,7 @@ class UserProductController extends Controller
             'display_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
             'layout_images' => 'nullable|array|max:10',
             'layout_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+            'brochure_image' => 'nullable|image|mimes:jpeg,png,jpg,webp,pdf|max:10240', // Max 10MB for brochure
         ];
     }
 
@@ -138,12 +139,25 @@ class UserProductController extends Controller
             'layout_images.*.image' => 'File harus berupa gambar',
             'layout_images.*.mimes' => 'Format foto denah harus: jpeg, png, jpg, atau webp',
             'layout_images.*.max' => 'Ukuran foto denah maksimal 5MB',
+            'brochure_image.image' => 'File brosur harus berupa gambar',
+            'brochure_image.mimes' => 'Format brosur harus: jpeg, png, jpg, webp, atau pdf',
+            'brochure_image.max' => 'Ukuran brosur maksimal 10MB',
         ];
     }
 
     // Handle image uploads for a product (APPEND mode - keeps existing images)
     private function handleImages(MsProduct $product, Request $request, ?string $createdBy = null): void
     {
+        Log::info('handleImages called', [
+            'product_id' => $product->product_id,
+            'has_main' => $request->hasFile('main_image'),
+            'has_display' => $request->hasFile('display_images'),
+            'has_layout' => $request->hasFile('layout_images'),
+            'has_brochure' => $request->hasFile('brochure_image'),
+            'display_count' => $request->hasFile('display_images') ? count($request->file('display_images')) : 0,
+            'layout_count' => $request->hasFile('layout_images') ? count($request->file('layout_images')) : 0,
+        ]);
+
         $basePath = "products/{$product->product_id}";
 
         // Get current max order for display images
@@ -171,10 +185,7 @@ class UserProductController extends Controller
             $file = $request->file('main_image');
             $filename = 'main_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
             $path = $file->storeAs($basePath, $filename, 'public');
-            $file = $request->file('main_image');
-            $filename = 'main_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
-            $path = $file->storeAs($basePath, $filename, 'public');
-            
+
             MsProductImage::create([
                 'product_id' => $product->product_id,
                 'url' => Storage::url($path),
@@ -209,7 +220,7 @@ class UserProductController extends Controller
                 $newOrder = $maxLayoutOrder + $index + 1;
                 $filename = 'layout_' . $newOrder . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
                 $path = $file->storeAs($basePath, $filename, 'public');
-                
+
                 MsProductImage::create([
                     'product_id' => $product->product_id,
                     'url' => Storage::url($path),
@@ -219,6 +230,39 @@ class UserProductController extends Controller
                     'created_by' => $createdBy,
                 ]);
             }
+        }
+
+        // Brochure image - replace existing brochure if exists
+        if ($request->hasFile('brochure_image')) {
+            // Delete existing brochure first
+            $existingBrochure = MsProductImage::where('product_id', $product->product_id)
+                ->where('image_type', 'BROCHURE')
+                ->first();
+
+            if ($existingBrochure) {
+                $this->deleteImageFile($existingBrochure->url);
+                $existingBrochure->delete();
+            }
+
+            $file = $request->file('brochure_image');
+            $filename = 'brochure_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs($basePath, $filename, 'public');
+
+            Log::info('Brochure uploaded', [
+                'product_id' => $product->product_id,
+                'filename' => $filename,
+                'path' => $path,
+                'url' => Storage::url($path),
+            ]);
+
+            MsProductImage::create([
+                'product_id' => $product->product_id,
+                'url' => Storage::url($path),
+                'image_type' => 'BROCHURE',
+                'main' => 0,
+                'order' => 0,
+                'created_by' => $createdBy,
+            ]);
         }
     }
 
@@ -264,9 +308,10 @@ class UserProductController extends Controller
     // Check if request has any image files
     private function hasImageFiles(Request $request): bool
     {
-        return $request->hasFile('main_image') 
-            || $request->hasFile('display_images') 
-            || $request->hasFile('layout_images');
+        return $request->hasFile('main_image')
+            || $request->hasFile('display_images')
+            || $request->hasFile('layout_images')
+            || $request->hasFile('brochure_image');
     }
 
     // GET /api/user_product?status={active|draft}&q={keyword}&per_page={limit} - Ambil daftar produk user
@@ -277,8 +322,8 @@ class UserProductController extends Controller
         $q = $request->query('q');
         $perPage = (int) $request->query('per_page', 12);
 
-        $query = MsProduct::where('created_by', $user->id) 
-            ->with(['mainImageRelation', 'locations', 'listingTypeDetail', 'productTypeDetail', 'conditionDetail']);
+        $query = MsProduct::where('created_by', $user->id)
+            ->with(['mainImageRelation', 'brochureImage', 'locations', 'listingTypeDetail', 'productTypeDetail', 'conditionDetail']);
 
         if ($status) {
             $query->where('status', $status);
@@ -296,28 +341,30 @@ class UserProductController extends Controller
         $products = collect($paginator->items())->map(function ($product) {
             // Eager loaded relation
             $mainImage = $product->mainImageRelation;
+            $brochureImage = $product->brochureImage;
             $location = $product->locations->first();
-            
+
             return [
                 'product_id' => $product->product_id,
                 'title' => $product->title,
                 'selling_price' => $product->selling_price,
                 'rental_price' => $product->rental_price,
-                
+
                 'listing_type' => $product->listing_type,
                 'listing_type_description' => $product->listingTypeDetail?->description,
-                
+
                 'status' => $product->status,
                 'created_at' => $product->created_at,
                 'main_image' => $this->publicUrl($mainImage?->url),
+                'brochure' => $this->publicUrl($brochureImage?->url),
                 'location' => $location ? [
                     'latitude' => $location->latitude,
                     'longitude' => $location->longitude,
                 ] : null,
-                
+
                 'product_type' => $product->product_type,
                 'product_type_description' => $product->productTypeDetail?->description,
-                
+
                 'condition' => $product->condition,
                 'condition_description' => $product->conditionDetail?->description,
             ];
@@ -470,6 +517,7 @@ class UserProductController extends Controller
         $mainImage = $product->images()->main()->first();
         $displayImages = $product->displayImages()->get();
         $layoutImages = $product->layoutImages()->get();
+        $brochureImage = $product->brochureImage;
 
         return response()->json([
             'success' => true,
@@ -520,6 +568,7 @@ class UserProductController extends Controller
                         'url' => $this->publicUrl($img->url),
                         'order' => $img->order,
                     ])->values(),
+                    'brochure' => $this->publicUrl($brochureImage?->url),
                 ],
             ],
         ]);
@@ -537,6 +586,16 @@ class UserProductController extends Controller
             ], 404);
         }
 
+        // Debug logging
+        Log::info('Update Product Request', [
+            'product_id' => $productId,
+            'has_main_image' => $request->hasFile('main_image'),
+            'has_display_images' => $request->hasFile('display_images'),
+            'has_layout_images' => $request->hasFile('layout_images'),
+            'has_brochure_image' => $request->hasFile('brochure_image'),
+            'all_files' => $request->allFiles(),
+        ]);
+
         $validator = Validator::make(
             $request->all(),
             $this->getValidationRules(true),
@@ -547,6 +606,11 @@ class UserProductController extends Controller
             $errors = $validator->errors()->all();
             // Ambil hanya error pertama
             $firstError = $errors[0] ?? 'Validasi gagal';
+
+            Log::error('Update Product Validation Failed', [
+                'product_id' => $productId,
+                'errors' => $errors,
+            ]);
 
             return response()->json([
                 'success' => false,

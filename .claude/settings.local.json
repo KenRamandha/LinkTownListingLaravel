@@ -4,7 +4,13 @@
       "Bash(php artisan route:clear:*)",
       "Bash(php artisan route:list:*)",
       "Bash(curl:*)",
-      "Bash(php artisan tinker:*)"
+      "Bash(php artisan tinker:*)",
+      "Bash(ls /Users/kenramandha/Laravel/internal-app/database/migrations/*user_product*.php)",
+      "Bash(ls /Users/kenramandha/Laravel/internal-app/database/migrations/*.php)",
+      "Bash(php artisan db:show --json)",
+      "Bash(php artisan db:table tr_product --json)",
+      "Bash(php artisan db:table tr_product_image --json)",
+      "Bash(php -i)"
     ]
   }
 }

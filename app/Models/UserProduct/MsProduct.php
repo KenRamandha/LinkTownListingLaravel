@@ -105,6 +105,11 @@ class MsProduct extends Model
         return $this->images()->where('image_type', 'LAYOUT')->orderBy('order');
     }
 
+    public function brochureImage(): HasOne
+    {
+        return $this->hasOne(MsProductImage::class, 'product_id', 'product_id')->where('image_type', 'BROCHURE');
+    }
+
     public function mainImage()
     {
         return $this->images()->where('main', 1)->first();

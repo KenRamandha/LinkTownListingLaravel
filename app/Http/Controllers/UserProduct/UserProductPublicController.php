@@ -153,6 +153,7 @@ class UserProductPublicController extends Controller
                     'images' => fn($query) => $query->orderBy('order'),
                     'displayImages',
                     'layoutImages',
+                    'brochureImage',
                     'locations',
                     'listingTypeDetail',
                     'productTypeDetail',
@@ -558,6 +559,7 @@ class UserProductPublicController extends Controller
             'specifications'     => $this->formatSpecificationsForDetail($product->specification),
             'images'             => $this->formatImagesDetail($product->displayImages),
             'layouts'            => $this->formatLayoutsDetail($product->layoutImages),
+            'brochure'           => $this->publicUrl($product->brochureImage?->url),
             'locations'          => $this->formatLocationsDetail($product->locations),
         ];
     }
