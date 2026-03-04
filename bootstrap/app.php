@@ -19,14 +19,18 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->group('api', [
+            \Illuminate\Cookie\Middleware\EncryptCookies::class,
+            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+            \Illuminate\Session\Middleware\StartSession::class,
+            \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \Illuminate\Routing\Middleware\ThrottleRequests::class . ':60,1',
             \App\Http\Middleware\ForceJsonResponse::class,
         ]);
 
         $middleware->alias([
-            'auth'           => \Illuminate\Auth\Middleware\Authenticate::class,
-            'optional.auth'  => \App\Http\Middleware\OptionalSanctum::class,
+            'auth' => \Illuminate\Auth\Middleware\Authenticate::class,
+            'optional.auth' => \App\Http\Middleware\OptionalSanctum::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

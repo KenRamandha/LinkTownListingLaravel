@@ -26,13 +26,14 @@ class User extends Authenticatable
         'password',
         'status',
         'is_employee',
+        'akses_web',
         'last_login_at',
     ];
 
-    protected $hidden = ['password','remember_token'];
+    protected $hidden = ['password', 'remember_token'];
 
     protected $casts = [
-        'is_employee'   => 'boolean',
+        'is_employee' => 'boolean',
         'last_login_at' => 'datetime',
     ];
 
