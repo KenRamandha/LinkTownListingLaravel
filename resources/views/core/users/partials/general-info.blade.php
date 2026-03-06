@@ -143,7 +143,7 @@
             </select>
         </div>
 
-        <!-- <div>
+        <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1">
                 Role
             </label>
@@ -155,7 +155,7 @@
                     </option>
                 @endforeach
             </select>
-        </div> -->
+        </div>
 
         <div class="flex items-center gap-2 mt-2">
             <input type="checkbox" name="is_employee" id="is_employee" value="1" {{ (isset($user) && $user->is_employee) ? 'checked' : '' }} class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">

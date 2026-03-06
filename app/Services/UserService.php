@@ -317,9 +317,7 @@ class UserService
                     $roleId = $existingRole ? $existingRole->role_id : null;
                 }
 
-                if ($roleId) {
-                    $this->savePermissions($id, $roleId, $data['user_companies'] ?? [$data['company_id']], $data['menu_permissions']);
-                }
+                $this->savePermissions($id, $roleId, $data['user_companies'] ?? [$data['company_id']], $data['menu_permissions']);
             }
 
             DB::commit();
