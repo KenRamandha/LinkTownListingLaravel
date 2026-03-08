@@ -96,8 +96,31 @@ class UserProductController extends Controller
             'display_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
             'layout_images' => 'nullable|array|max:10',
             'layout_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
-            'brochure_image' => 'nullable|mimes:jpeg,png,jpg,webp,pdf|max:10240', // Max 10MB for brochure (image or PDF)
+            'brochure_image' => 'nullable|file|max:10240', // Max 10MB for brochure - file type validated separately for VPS compatibility
         ];
+    }
+
+    // Custom validation for brochure image to handle VPS MIME detection issues
+    private function validateBrochureImage(Request $request): ?string
+    {
+        if (!$request->hasFile('brochure_image')) {
+            return null;
+        }
+
+        $file = $request->file('brochure_image');
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+        $extension = strtolower($file->getClientOriginalExtension());
+
+        if (!in_array($extension, $allowedExtensions)) {
+            return 'Format brosur harus: jpeg, png, jpg, webp, atau pdf';
+        }
+
+        // Check file size (10MB = 10485760 bytes)
+        if ($file->getSize() > 10485760) {
+            return 'Ukuran brosur maksimal 10MB';
+        }
+
+        return null;
     }
 
     // Get custom validation messages for product
@@ -141,8 +164,6 @@ class UserProductController extends Controller
             'layout_images.*.image' => 'File harus berupa gambar',
             'layout_images.*.mimes' => 'Format foto denah harus: jpeg, png, jpg, atau webp',
             'layout_images.*.max' => 'Ukuran foto denah maksimal 5MB',
-            'brochure_image.image' => 'File brosur harus berupa gambar',
-            'brochure_image.mimes' => 'Format brosur harus: jpeg, png, jpg, webp, atau pdf',
             'brochure_image.max' => 'Ukuran brosur maksimal 10MB',
         ];
     }
@@ -401,6 +422,15 @@ class UserProductController extends Controller
             $this->getValidationMessages()
         );
 
+        // Custom brochure validation for VPS compatibility
+        $brochureError = $this->validateBrochureImage($request);
+        if ($brochureError) {
+            return response()->json([
+                'success' => false,
+                'message' => $brochureError,
+            ], 422);
+        }
+
         if ($validator->fails()) {
             $errors = $validator->errors()->all();
             // Ambil hanya error pertama
@@ -606,6 +636,15 @@ class UserProductController extends Controller
             $this->getValidationRules(true),
             $this->getValidationMessages()
         );
+
+        // Custom brochure validation for VPS compatibility
+        $brochureError = $this->validateBrochureImage($request);
+        if ($brochureError) {
+            return response()->json([
+                'success' => false,
+                'message' => $brochureError,
+            ], 422);
+        }
 
         if ($validator->fails()) {
             $errors = $validator->errors()->all();

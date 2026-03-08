@@ -17,7 +17,8 @@
       "Bash(sudo sed -i '' 's/post_max_size = 8M/post_max_size = 25M/' /opt/homebrew/etc/php/8.3/php.ini)",
       "Bash(sed -i '' 's/upload_max_filesize = 2M/upload_max_filesize = 20M/' /opt/homebrew/etc/php/8.3/php.ini)",
       "Bash(sed -i '' 's/post_max_size = 8M/post_max_size = 25M/' /opt/homebrew/etc/php/8.3/php.ini)",
-      "Bash(brew services restart php)"
+      "Bash(brew services restart php)",
+      "Bash(php -l /Users/kenramandha/Laravel/internal-app/app/Http/Controllers/UserProduct/UserProductController.php)"
     ]
   }
 }
