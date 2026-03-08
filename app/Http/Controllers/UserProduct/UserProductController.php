@@ -43,14 +43,14 @@ class UserProductController extends Controller
         if ($price === null || $percentage === null) {
             return null;
         }
-        
+
         $priceFloat = (float) $price;
         $percentageInt = (int) $percentage;
-        
+
         if ($priceFloat <= 0 || $percentageInt < 0 || $percentageInt > 100) {
             return null;
         }
-        
+
         return ($priceFloat * $percentageInt) / 100;
     }
 
@@ -59,6 +59,7 @@ class UserProductController extends Controller
     {
         return [
             'title' => $isUpdate ? 'sometimes|required|string|max:255' : 'required|string|max:255',
+            'brochure_title' => 'nullable|string|max:25',
             'description' => 'nullable|string',
             'condition' => 'nullable|string|exists:tr_product_detail,detail_id,detail_type,CONDITION',
             'product_type' => 'nullable|string|exists:tr_product_detail,detail_id,detail_type,PROPERTY_TYPE',
@@ -95,7 +96,7 @@ class UserProductController extends Controller
             'display_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
             'layout_images' => 'nullable|array|max:10',
             'layout_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
-            'brochure_image' => 'nullable|image|mimes:jpeg,png,jpg,webp,pdf|max:10240', // Max 10MB for brochure
+            'brochure_image' => 'nullable|mimes:jpeg,png,jpg,webp,pdf|max:10240', // Max 10MB for brochure (image or PDF)
         ];
     }
 
@@ -105,6 +106,7 @@ class UserProductController extends Controller
         return [
             'title.required' => 'Judul properti (Title) wajib diisi',
             'title.max' => 'Judul properti maksimal 255 karakter',
+            'brochure_title.max' => 'Judul brosur maksimal 25 karakter',
             'description.string' => 'Deskripsi properti harus berupa teks',
             'condition.exists' => 'Kondisi properti tidak valid',
             'product_type.exists' => 'Tipe properti tidak valid',
@@ -176,7 +178,7 @@ class UserProductController extends Controller
             $existingMain = MsProductImage::where('product_id', $product->product_id)
                 ->where('main', 1)
                 ->first();
-            
+
             if ($existingMain) {
                 $this->deleteImageFile($existingMain->url);
                 $existingMain->delete();
@@ -202,7 +204,7 @@ class UserProductController extends Controller
                 $newOrder = $maxDisplayOrder + $index + 1;
                 $filename = 'display_' . $newOrder . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
                 $path = $file->storeAs($basePath, $filename, 'public');
-                
+
                 MsProductImage::create([
                     'product_id' => $product->product_id,
                     'url' => Storage::url($path),
@@ -272,7 +274,7 @@ class UserProductController extends Controller
         if (!$url) {
             return;
         }
-        
+
         $path = str_replace('/storage/', '', $url);
         if (Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);
@@ -284,7 +286,7 @@ class UserProductController extends Controller
     {
         // Delete from database
         MsProductImage::where('product_id', $productId)->delete();
-        
+
         // Delete folder from storage
         $folderPath = "products/{$productId}";
         if (Storage::disk('public')->exists($folderPath)) {
@@ -298,7 +300,7 @@ class UserProductController extends Controller
         if (!$productId) {
             return;
         }
-        
+
         $folderPath = "products/{$productId}";
         if (Storage::disk('public')->exists($folderPath)) {
             Storage::disk('public')->deleteDirectory($folderPath);
@@ -330,9 +332,9 @@ class UserProductController extends Controller
         }
 
         if ($q) {
-            $query->where(function($query) use ($q) {
+            $query->where(function ($query) use ($q) {
                 $query->where('title', 'like', "%{$q}%")
-                      ->orWhere('description', 'like', "%{$q}%");
+                    ->orWhere('description', 'like', "%{$q}%");
             });
         }
 
@@ -347,6 +349,7 @@ class UserProductController extends Controller
             return [
                 'product_id' => $product->product_id,
                 'title' => $product->title,
+                'brochure_title' => $product->brochure_title,
                 'selling_price' => $product->selling_price,
                 'rental_price' => $product->rental_price,
 
@@ -420,6 +423,7 @@ class UserProductController extends Controller
             $product = MsProduct::create([
                 'product_id' => $productId,
                 'title' => $request->input('title'),
+                'brochure_title' => $request->input('brochure_title'),
                 'description' => $request->input('description'),
                 'condition' => $request->input('condition'),
                 'product_type' => $request->input('product_type'),
@@ -492,7 +496,7 @@ class UserProductController extends Controller
             DB::rollBack();
             // Cleanup uploaded files if any
             $this->cleanupUploadedFiles($productId);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menyimpan produk',
@@ -524,6 +528,7 @@ class UserProductController extends Controller
             'data' => [
                 'product_id' => $product->product_id,
                 'title' => $product->title,
+                'brochure_title' => $product->brochure_title,
                 'description' => $product->description,
                 'condition' => $product->condition,
                 'product_type' => $product->product_type,
@@ -630,6 +635,7 @@ class UserProductController extends Controller
 
             $product->update([
                 'title' => $request->input('title', $product->title),
+                'brochure_title' => $request->input('brochure_title', $product->brochure_title),
                 'description' => $request->input('description', $product->description),
                 'condition' => $request->input('condition', $product->condition),
                 'product_type' => $request->input('product_type', $product->product_type),
@@ -885,7 +891,7 @@ class UserProductController extends Controller
         try {
             // Delete file from storage
             $this->deleteImageFile($image->url);
-            
+
             // Delete from database
             $image->delete();
 

@@ -10,7 +10,14 @@
       "Bash(php artisan db:show --json)",
       "Bash(php artisan db:table tr_product --json)",
       "Bash(php artisan db:table tr_product_image --json)",
-      "Bash(php -i)"
+      "Bash(php -i)",
+      "Bash(php artisan lang:status)",
+      "Bash(php --ini)",
+      "Bash(sudo sed -i '' 's/upload_max_filesize = 2M/upload_max_filesize = 20M/' /opt/homebrew/etc/php/8.3/php.ini)",
+      "Bash(sudo sed -i '' 's/post_max_size = 8M/post_max_size = 25M/' /opt/homebrew/etc/php/8.3/php.ini)",
+      "Bash(sed -i '' 's/upload_max_filesize = 2M/upload_max_filesize = 20M/' /opt/homebrew/etc/php/8.3/php.ini)",
+      "Bash(sed -i '' 's/post_max_size = 8M/post_max_size = 25M/' /opt/homebrew/etc/php/8.3/php.ini)",
+      "Bash(brew services restart php)"
     ]
   }
 }

@@ -24,6 +24,7 @@ class MsProduct extends Model
     protected $fillable = [
         'product_id',
         'title',
+        'brochure_title',
         'description',
         'listing_type',
         'province',
