@@ -30,6 +30,9 @@ use App\Http\Controllers\UserProduct\LocationController;
 
 use App\Http\Controllers\Transaction\TransactionController;
 
+use App\Http\Controllers\Ijin\MsIjinController;
+use App\Http\Controllers\Ijin\TrIjinController;
+
 
 Route::middleware('optional.auth')->group(function () {
     Route::get('/home', [HomeController::class, 'index']);
@@ -161,4 +164,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // Items (for transaction)
     Route::get('/items/search', [TransactionController::class, 'searchItems']);
     Route::get('/items/barcode/{barcode}', [TransactionController::class, 'getItemByBarcode']);
+
+    // Ijin Module - Master Ijin
+    Route::get('/ms-ijin', [MsIjinController::class, 'index']);
+
+    // Ijin Module - Transaction Ijin
+    Route::get('/ijin', [TrIjinController::class, 'index']);
+    Route::post('/ijin', [TrIjinController::class, 'store']);
+    Route::post('/ijin/{id}', [TrIjinController::class, 'update']);
+    Route::get('/ijin/today', [TrIjinController::class, 'today']);
+    Route::get('/ijin/history', [TrIjinController::class, 'history']);
+    Route::get('/ijin/{id}', [TrIjinController::class, 'show']);
 });
