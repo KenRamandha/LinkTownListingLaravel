@@ -172,6 +172,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/ijin', [TrIjinController::class, 'index']);
     Route::post('/ijin', [TrIjinController::class, 'store']);
     Route::post('/ijin/{id}', [TrIjinController::class, 'update']);
+    Route::delete('/ijin/{id}', [TrIjinController::class, 'destroy']);
     Route::get('/ijin/today', [TrIjinController::class, 'today']);
     Route::get('/ijin/history', [TrIjinController::class, 'history']);
     Route::get('/ijin/{id}', [TrIjinController::class, 'show']);

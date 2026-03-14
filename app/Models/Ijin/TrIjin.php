@@ -82,6 +82,11 @@ class TrIjin extends Model
         return $query->where('status_ijin', 'Tolak');
     }
 
+    public function scopeDeleted($query)
+    {
+        return $query->where('status_ijin', 'Hapus');
+    }
+
     /**
      * Scope for filtering by user
      */

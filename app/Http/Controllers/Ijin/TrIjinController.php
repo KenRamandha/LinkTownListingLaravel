@@ -21,6 +21,8 @@ class TrIjinController extends Controller
 
             $data = DB::table('tr_ijin')
                 ->where('id_user', $user->id)
+                ->where('status_ijin', '!=', 'Hapus')
+                ->whereNull('deleted_at')
                 ->whereDate('tgl_dari', '<=', $today)
                 ->whereDate('tgl_sampai', '>=', $today)
                 ->orderByDesc('created_at')
@@ -39,12 +41,16 @@ class TrIjinController extends Controller
             $validated = $request->validate([
                 'start_date' => 'nullable|date',
                 'end_date'   => 'nullable|date|after_or_equal:start_date',
+                'per_page'   => 'nullable|integer|min:1|max:100',
             ]);
 
             $user = $request->user();
+            $perPage = $validated['per_page'] ?? 15;
 
             $query = DB::table('tr_ijin')
                 ->where('id_user', $user->id)
+                ->where('status_ijin', '!=', 'Hapus')
+                ->whereNull('deleted_at')
                 ->orderByDesc('created_at');
 
             if ($validated['start_date'] ?? null) {
@@ -55,7 +61,7 @@ class TrIjinController extends Controller
                 $query->whereDate('tgl_dari', '<=', Carbon::parse($validated['end_date'])->toDateString());
             }
 
-            $data = $query->get();
+            $data = $query->paginate($perPage);
 
             return $this->ok($data, 'Daftar riwayat izin');
         } catch (Throwable $e) {
@@ -72,6 +78,8 @@ class TrIjinController extends Controller
             $ijin = DB::table('tr_ijin')
                 ->where('id', $id)
                 ->where('id_user', $user->id)
+                ->where('status_ijin', '!=', 'Hapus')
+                ->whereNull('deleted_at')
                 ->first();
 
             if (!$ijin) {
@@ -92,6 +100,8 @@ class TrIjinController extends Controller
 
             $data = DB::table('tr_ijin')
                 ->where('id_user', $user->id)
+                ->where('status_ijin', '!=', 'Hapus')
+                ->whereNull('deleted_at')
                 ->orderByDesc('created_at')
                 ->get();
 
@@ -172,6 +182,8 @@ class TrIjinController extends Controller
             $ijin = DB::table('tr_ijin')
                 ->where('id', $id)
                 ->where('id_user', $user->id)
+                ->where('status_ijin', '!=', 'Hapus')
+                ->whereNull('deleted_at')
                 ->first();
 
             if (!$ijin) {
@@ -264,6 +276,42 @@ class TrIjinController extends Controller
         } catch (Throwable $e) {
             report($e);
             return $this->fail('Gagal memperbarui izin', 500, 'SERVER_ERROR');
+        }
+    }
+
+    /**
+     * DELETE /api/ijin/{id} - Soft delete izin
+     */
+    public function destroy(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+
+            // Check if izin exists and belongs to user
+            $ijin = DB::table('tr_ijin')
+                ->where('id', $id)
+                ->where('id_user', $user->id)
+                ->where('status_ijin', '!=', 'Hapus')
+                ->whereNull('deleted_at')
+                ->first();
+
+            if (!$ijin) {
+                return $this->fail('Izin tidak ditemukan', 404, 'NOT_FOUND');
+            }
+
+            // Soft delete: set deleted_at and status_ijin to 'Hapus'
+            DB::table('tr_ijin')
+                ->where('id', $id)
+                ->update([
+                    'deleted_at' => now(),
+                    'status_ijin' => 'Hapus',
+                    'updated_at' => now(),
+                ]);
+
+            return $this->ok(null, 'Ijin berhasil dihapus');
+        } catch (Throwable $e) {
+            report($e);
+            return $this->fail('Gagal menghapus izin', 500, 'SERVER_ERROR');
         }
     }
 
