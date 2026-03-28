@@ -24,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Session\Middleware\StartSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
-            \Illuminate\Routing\Middleware\ThrottleRequests::class . ':60,1',
+            \Illuminate\Routing\Middleware\ThrottleRequests::class . ':1000,1',
             \App\Http\Middleware\ForceJsonResponse::class,
         ]);
 
