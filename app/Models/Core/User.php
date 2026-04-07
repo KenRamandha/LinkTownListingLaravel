@@ -110,9 +110,6 @@ class User extends Authenticatable
     public function refreshEffectivePermissionCache(): void
     {
         $this->effectivePermissionCache = null;
-        if ($this->getKey()) {
-            UserCache::forgetPermissions($this->getKey());
-        }
     }
 
     /**
@@ -123,11 +120,6 @@ class User extends Authenticatable
         if (!$refresh) {
             if (!is_null($this->effectivePermissionCache)) {
                 return $this->effectivePermissionCache;
-            }
-
-            $cached = UserCache::getPermissions($this->id);
-            if (is_array($cached)) {
-                return $this->effectivePermissionCache = $cached;
             }
         }
 
@@ -152,8 +144,6 @@ class User extends Authenticatable
         foreach ($overrides as $row) {
             $map[$row->key] = (bool) $row->allow;
         }
-
-        UserCache::putPermissions($this->id, $map);
 
         return $this->effectivePermissionCache = $map;
     }
