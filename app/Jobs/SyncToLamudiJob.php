@@ -75,8 +75,46 @@ class SyncToLamudiJob implements ShouldQueue
             return;
         }
 
-        $lamudiService = new LamudiService();
-        $mapper = new LamudiAdMapper();
+        // Get the user who created the product to check their Lamudi settings
+        $user = $product->creator;
+
+        if (!$user) {
+            Log::warning('Creator not found for product, skipping Lamudi sync', [
+                'product_id' => $product->product_id,
+            ]);
+            return;
+        }
+
+        // 1. Check if user enabled Lamudi API
+        if ($user->lamudi_api !== 'ON') {
+            Log::info('Skipping Lamudi sync: User Lamudi API is OFF', [
+                'product_id' => $product->product_id,
+                'user_id' => $user->id,
+            ]);
+            return;
+        }
+
+        // 2. Check if user has API config linked
+        if (!$user->ms_api) {
+            Log::info('Skipping Lamudi sync: User has no API configuration linked (ms_api is null)', [
+                'product_id' => $product->product_id,
+                'user_id' => $user->id,
+            ]);
+            return;
+        }
+
+        // 3. Fetch API config from ms_api table
+        $apiConfig = $user->msApi;
+        if (!$apiConfig) {
+            Log::warning('Skipping Lamudi sync: API config ID ' . $user->ms_api . ' not found in ms_api table', [
+                'product_id' => $product->product_id,
+                'user_id' => $user->id,
+            ]);
+            return;
+        }
+
+        $lamudiService = new LamudiService($apiConfig);
+        $mapper = new LamudiAdMapper($apiConfig->api_pubid);
 
         try {
             // Prepare images for Lamudi

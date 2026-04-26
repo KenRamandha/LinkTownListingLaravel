@@ -28,6 +28,8 @@ class User extends Authenticatable
         'is_employee',
         'akses_web',
         'last_login_at',
+        'lamudi_api',
+        'ms_api',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -35,6 +37,7 @@ class User extends Authenticatable
     protected $casts = [
         'is_employee' => 'boolean',
         'last_login_at' => 'datetime',
+        'ms_api' => 'integer',
     ];
 
     public function company()
@@ -55,6 +58,14 @@ class User extends Authenticatable
     public function roles()
     {
         return $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id');
+    }
+
+    /**
+     * Get the Lamudi/Proppit API configuration for this user.
+     */
+    public function msApi()
+    {
+        return $this->belongsTo(\App\Models\UserProduct\MsApi::class, 'ms_api', 'id_api');
     }
 
     public function menuTokens()

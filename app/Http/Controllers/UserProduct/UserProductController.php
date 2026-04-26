@@ -976,7 +976,22 @@ class UserProductController extends Controller
         }
 
         try {
-            $mapper = new LamudiAdMapper();
+            $user = $product->creator;
+            $apiConfig = $user?->msApi;
+
+            // In preview, we might want to show error if config is missing
+            if (!$user || $user->lamudi_api !== 'ON' || !$apiConfig) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Konfigurasi Lamudi/Proppit belum diaktifkan atau belum lengkap untuk user ini.',
+                    'debug' => [
+                        'lamudi_api' => $user->lamudi_api ?? 'null',
+                        'has_ms_api' => (bool) $apiConfig,
+                    ]
+                ], 400);
+            }
+
+            $mapper = new LamudiAdMapper($apiConfig->api_pubid);
 
             // Prepare images for Lamudi
             $displayImages = $product->displayImages()->get()->map(function ($img) {
@@ -1042,15 +1057,22 @@ class UserProductController extends Controller
             // Delete from Proppit if synced
             if ($product->isSyncedWithLamudi() && !empty($product->lamudi_reference_id)) {
                 try {
-                    $lamudiService = new \App\Services\Lamudi\LamudiService();
-                    $lamudiService->deleteAd(
-                        $product->lamudi_reference_id,
-                        ['externalId' => config('services.lamudi.publisher_id')]
-                    );
-                    Log::info('Lamudi ad deleted', [
-                        'product_id' => $product->product_id,
-                        'reference_id' => $product->lamudi_reference_id,
-                    ]);
+                    $user = $product->creator;
+                    $apiConfig = $user?->msApi;
+
+                    if ($user && $user->lamudi_api === 'ON' && $apiConfig) {
+                        $lamudiService = new \App\Services\Lamudi\LamudiService($apiConfig);
+                        $lamudiService->deleteAd($product->lamudi_reference_id);
+                        Log::info('Lamudi ad deleted', [
+                            'product_id' => $product->product_id,
+                            'reference_id' => $product->lamudi_reference_id,
+                        ]);
+                    } else {
+                        Log::info('Skipping Lamudi ad deletion: User API disabled or config missing', [
+                            'product_id' => $product->product_id,
+                            'lamudi_api' => $user->lamudi_api ?? 'null',
+                        ]);
+                    }
                 } catch (\Exception $e) {
                     // Log warning but don't prevent deletion
                     Log::warning('Failed to delete from Lamudi, continuing with local deletion', [

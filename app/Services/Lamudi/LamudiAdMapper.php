@@ -19,9 +19,9 @@ class LamudiAdMapper
         'FACILITY-18' => 'Bicycle Track',
     ];
 
-    public function __construct()
+    public function __construct(?string $publisherId = null)
     {
-        $this->publisherId = config('services.lamudi.publisher_id');
+        $this->publisherId = $publisherId ?: config('services.lamudi.publisher_id');
     }
 
     /**

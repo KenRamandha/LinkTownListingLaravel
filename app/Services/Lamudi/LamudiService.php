@@ -17,13 +17,29 @@ class LamudiService
     private const CACHE_KEY_TOKEN = 'lamudi_api_token';
     private const CACHE_KEY_EXPIRATION = 'lamudi_token_expiration';
 
-    public function __construct()
+    public function __construct(?\App\Models\UserProduct\MsApi $apiConfig = null)
     {
         $this->baseUrl = config('services.lamudi.base_url', 'https://real-time.proppit.com/api/v2');
-        $this->user = config('services.lamudi.user');
-        $this->password = config('services.lamudi.password');
-        $this->publisherId = config('services.lamudi.publisher_id');
         $this->country = config('services.lamudi.country', 'ID');
+
+        if ($apiConfig) {
+            $this->user = $apiConfig->api_user;
+            $this->password = $apiConfig->api_password;
+            $this->publisherId = $apiConfig->api_pubid;
+        } else {
+            $this->user = config('services.lamudi.user');
+            $this->password = config('services.lamudi.password');
+            $this->publisherId = config('services.lamudi.publisher_id');
+        }
+    }
+
+    /**
+     * Get dynamic cache key based on current credentials
+     */
+    private function getCacheKey(string $type): string
+    {
+        $hash = md5($this->user . $this->publisherId);
+        return "lamudi_{$type}_{$hash}";
     }
 
     /**
@@ -43,8 +59,11 @@ class LamudiService
      */
     private function getOrCreateToken(): string
     {
-        $cachedToken = Cache::get(self::CACHE_KEY_TOKEN);
-        $cachedExpiration = Cache::get(self::CACHE_KEY_EXPIRATION);
+        $tokenKey = $this->getCacheKey('token');
+        $expKey = $this->getCacheKey('expiration');
+
+        $cachedToken = Cache::get($tokenKey);
+        $cachedExpiration = Cache::get($expKey);
 
         // Check if token exists in cache and not expired
         if ($cachedToken && $cachedExpiration && $cachedExpiration > time()) {
@@ -74,8 +93,8 @@ class LamudiService
 
         // Store token in cache (expires 5 minutes before actual expiration for safety)
         $ttl = max(0, $expiration - time() - 300);
-        Cache::put(self::CACHE_KEY_TOKEN, $token, $ttl);
-        Cache::put(self::CACHE_KEY_EXPIRATION, $expiration, $ttl);
+        Cache::put($tokenKey, $token, $ttl);
+        Cache::put($expKey, $expiration, $ttl);
 
         Log::info('Lamudi token refreshed', [
             'expires_at' => date('Y-m-d H:i:s', $expiration),
