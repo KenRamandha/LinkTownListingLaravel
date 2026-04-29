@@ -14,23 +14,15 @@ class LamudiService
     private string $password;
     private string $publisherId;
     private string $country;
-    private const CACHE_KEY_TOKEN = 'lamudi_api_token';
-    private const CACHE_KEY_EXPIRATION = 'lamudi_token_expiration';
 
-    public function __construct(?\App\Models\UserProduct\MsApi $apiConfig = null)
+    public function __construct(\App\Models\UserProduct\MsApi $apiConfig)
     {
         $this->baseUrl = config('services.lamudi.base_url', 'https://real-time.proppit.com/api/v2');
         $this->country = config('services.lamudi.country', 'ID');
 
-        if ($apiConfig) {
-            $this->user = $apiConfig->api_user;
-            $this->password = $apiConfig->api_password;
-            $this->publisherId = $apiConfig->api_pubid;
-        } else {
-            $this->user = config('services.lamudi.user');
-            $this->password = config('services.lamudi.password');
-            $this->publisherId = config('services.lamudi.publisher_id');
-        }
+        $this->user = $apiConfig->api_user;
+        $this->password = $apiConfig->api_password;
+        $this->publisherId = $apiConfig->api_pubid;
     }
 
     /**
