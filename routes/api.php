@@ -10,6 +10,7 @@ use App\Http\Controllers\Core\ModulesController;
 use App\Http\Controllers\Core\FeaturesController;
 use App\Http\Controllers\Core\PermissionsMasterController;
 use App\Http\Controllers\Core\UsersController;
+use App\Http\Controllers\Core\RegisterController;
 
 use App\Http\Controllers\Menus\MenuController;
 use App\Http\Controllers\Menus\MenuAdminController;
@@ -63,6 +64,11 @@ Route::middleware('optional.auth')->group(function () {
 });
 
 Route::post('/auth/login', [AuthController::class, 'login']);
+Route::get('/auth/companies', [RegisterController::class, 'getCompanies']);
+Route::get('/auth/departments', [RegisterController::class, 'getDepartments']);
+Route::get('/auth/positions', [RegisterController::class, 'getPositions']);
+Route::get('/auth/roles', [RegisterController::class, 'getRoles']);
+Route::post('/auth/register', [RegisterController::class, 'register']);
 Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 Route::post('/auth/refresh', [AuthController::class, 'refresh'])->middleware('auth:sanctum');
 Route::post('/auth/change-password', [AuthController::class, 'changePassword'])->middleware('auth:sanctum');

@@ -641,7 +641,7 @@ class LamudiAdMapper
     /**
      * Map furnished status
      */
-    private function mapFurnished($furnished): string
+    private function mapFurnished(bool|string $furnished): string
     {
         if (is_bool($furnished)) {
             return $furnished ? 'fully' : 'unfurnished';
