@@ -91,11 +91,11 @@ class UserProductController extends Controller
             'rental_terms' => 'nullable|string|max:255',
             'status' => 'nullable|in:Draft,Publish',
             // Image validation
-            'main_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'main_image' => 'nullable|file|mimes:jpeg,png,jpg,webp,heic,heif|max:5120',
             'display_images' => 'nullable|array|max:10',
-            'display_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+            'display_images.*' => 'file|mimes:jpeg,png,jpg,webp,heic,heif|max:5120',
             'layout_images' => 'nullable|array|max:10',
-            'layout_images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+            'layout_images.*' => 'file|mimes:jpeg,png,jpg,webp,heic,heif|max:5120',
             'brochure_image' => 'nullable|file|max:10240', // Max 10MB for brochure - file type validated separately for VPS compatibility
         ];
     }
@@ -108,11 +108,11 @@ class UserProductController extends Controller
         }
 
         $file = $request->file('brochure_image');
-        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'pdf'];
         $extension = strtolower($file->getClientOriginalExtension());
 
         if (!in_array($extension, $allowedExtensions)) {
-            return 'Format brosur harus: jpeg, png, jpg, webp, atau pdf';
+            return 'Format brosur harus: jpeg, png, jpg, webp, heic, atau pdf';
         }
 
         // Check file size (10MB = 10485760 bytes)
@@ -153,16 +153,16 @@ class UserProductController extends Controller
             'commission_rent_percentage.max' => 'Komisi sewa maksimal 100%',
             'location.latitude.numeric' => 'Latitude harus berupa angka (contoh: -6.2088)',
             'location.longitude.numeric' => 'Longitude harus berupa angka (contoh: 106.8456)',
-            'main_image.image' => 'File utama harus berupa gambar',
-            'main_image.mimes' => 'Format gambar utama harus: jpeg, png, jpg, atau webp',
+            'main_image.file' => 'File utama harus berupa file valid',
+            'main_image.mimes' => 'Format gambar utama harus: jpeg, png, jpg, webp, atau heic',
             'main_image.max' => 'Ukuran gambar utama maksimal 5MB',
             'display_images.max' => 'Maksimal 10 foto tampil',
-            'display_images.*.image' => 'File harus berupa gambar',
-            'display_images.*.mimes' => 'Format foto harus: jpeg, png, jpg, atau webp',
+            'display_images.*.file' => 'File harus berupa file valid',
+            'display_images.*.mimes' => 'Format foto harus: jpeg, png, jpg, webp, atau heic',
             'display_images.*.max' => 'Ukuran foto maksimal 5MB',
             'layout_images.max' => 'Maksimal 10 foto denah',
-            'layout_images.*.image' => 'File harus berupa gambar',
-            'layout_images.*.mimes' => 'Format foto denah harus: jpeg, png, jpg, atau webp',
+            'layout_images.*.file' => 'File harus berupa file valid',
+            'layout_images.*.mimes' => 'Format foto denah harus: jpeg, png, jpg, webp, atau heic',
             'layout_images.*.max' => 'Ukuran foto denah maksimal 5MB',
             'brochure_image.max' => 'Ukuran brosur maksimal 10MB',
         ];
