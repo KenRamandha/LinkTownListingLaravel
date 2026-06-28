@@ -249,7 +249,7 @@ class UserProductPublicController extends Controller
                 ->select(['detail_id', 'description'])
                 ->where('detail_type', 'CONDITION')
                 ->get();
-            
+
             foreach ($conditionRecords as $record) {
                 $slug = \Illuminate\Support\Str::slug($record->description);
                 if (in_array($slug, $inputProductTypes, true)) {
@@ -500,6 +500,20 @@ class UserProductPublicController extends Controller
             $area = MsArea::find($product->area);
         }
 
+        // Generate product link for Linktown
+        $productLink = null;
+        if (!empty($product->condition) && !empty($product->product_type)) {
+            $conditionChar = substr($product->condition, -1);
+            $typeChar = substr($product->product_type, -1);
+            $productTypeIdConcat = $conditionChar . $typeChar;
+
+            $productTypeLookup = \App\Models\Products\ProductType::where('meta_title', $productTypeIdConcat)->first();
+            if ($productTypeLookup && !empty($productTypeLookup->title)) {
+                $slug = \Illuminate\Support\Str::slug($productTypeLookup->title);
+                $productLink = "https://www.linktown.co.id/{$slug}/{$product->product_id}";
+            }
+        }
+
         return [
             'id'                 => is_numeric($product->product_id) ? (int) $product->product_id : $product->product_id,
             'slug'               => null,
@@ -521,7 +535,7 @@ class UserProductPublicController extends Controller
             'label'              => $this->formatLabelsArray($product),
             'label_color'        => null,
             'product_type_id'    => $product->product_type,
-            'link'               => null,
+            'link'               => $productLink,
             'order'              => null,
             'status'             => $product->status,
             'image_location'     => null,
